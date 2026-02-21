@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wealth Snake: Wealth Ledger Edition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            margin: 0;
+            background-color: #0a0a0a;
+            color: white;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            touch-action: none;
+        }
+        #game-container {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            max-width: 95vw;
+        }
+        canvas {
+            border: 2px solid #222;
+            background-color: #000;
+            box-shadow: 0 0 40px rgba(16, 185, 129, 0.1);
+        }
+        .side-panel {
+            width: 220px;
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 16px;
+            padding: 15px;
+            height: 500px;
+            overflow-y: auto;
+        }
+        .notification-feed {
+            position: fixed;
+            top: 20%;
+            pointer-events: none;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 50;
+        }
+        .notif {
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            animation: slideIn 0.5s ease-out forwards, fadeOut 2s 1s ease-in forwards;
+            opacity: 0;
+        }
+        @keyframes slideIn {
+            from { transform: translateX(-20px); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        @keyframes fadeOut {
+            from { opacity: 1; }
+            to { opacity: 0; }
+        }
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.95);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .btn {
+            width: 100%;
+            padding: 14px;
+            margin-top: 10px;
+            background: #222;
+            color: white;
+            border-radius: 12px;
+            border: 1px solid #444;
+            cursor: pointer;
+            font-weight: 600;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn:hover:not(:disabled) { background: #10b981; color: black; border-color: #10b981; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .hidden { display: none !important; }
+        
+        .timer-bar {
+            height: 4px;
+            background: #10b981;
+            width: 100%;
+            transition: width 1s linear;
+        }
+
+        #badge-preview {
+            max-width: 220px;
+            border-radius: 12px;
+            margin: 10px auto;
+            border: 2px solid #10b981;
+            box-shadow: 0 0 30px rgba(16, 185, 129, 0.3);
+        }
+
+        .loading-spinner {
+            border: 3px solid rgba(255,255,255,0.1);
+            border-top: 3px solid #10b981;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        input {
+            background: #222;
+            border: 1px solid #444;
+            padding: 12px;
+            border-radius: 12px;
+            color: white;
+            width: 100%;
+            margin-bottom: 15px;
+            text-align: center;
+            font-weight: bold;
+        }
+        input:focus { border-color: #10b981; outline: none; }
+    </style>
+</head>
+<body>
+
+<div id="ui" class="w-full max-w-[950px] px-4 mb-4 flex justify-between items-end">
+    <div class="flex items-end gap-4">
+        <div>
+            <div class="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Net Worth</div>
+            <div id="score" class="text-4xl font-black text-emerald-400">$0</div>
+        </div>
+        <button onclick="endGameManually()" class="bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-bold px-3 py-1 rounded border border-red-500/20 uppercase tracking-tighter mb-1 transition-colors pointer-events-auto">Cash Out</button>
+    </div>
+    
+    <div class="flex-1 px-8 text-center max-w-[300px]">
+        <div class="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Market Cycle</div>
+        <div class="bg-gray-800 rounded-full overflow-hidden">
+            <div id="timer-bar" class="timer-bar"></div>
+        </div>
+        <div id="timer-text" class="text-xs font-bold mt-1 text-emerald-500">30s</div>
+    </div>
+    
+    <div class="text-right">
+        <div id="playerNameDisplay" class="text-xs font-bold text-gray-400 mb-1 tracking-tighter uppercase">Investor: --</div>
+        <div id="multiplier" class="text-xs text-emerald-500 font-bold uppercase">1.0x Growth</div>
+    </div>
+</div>
+
+<div id="game-container">
+    <div class="side-panel hidden md:block">
+        <h3 class="text-xs font-bold text-gray-500 uppercase mb-4 tracking-tighter text-center">Market Guide</h3>
+        <div class="space-y-4 text-xs">
+            <div class="flex items-center gap-2"><span class="bg-emerald-500/20 p-1 rounded">💰</span><div><p class="font-bold text-emerald-400">Dividends</p><p class="text-gray-500">+ High Growth</p></div></div>
+            <div class="flex items-center gap-2"><span class="bg-emerald-500/20 p-1 rounded">🏠</span><div><p class="font-bold text-emerald-400">Real Estate</p><p class="text-gray-500">+ Stable Assets</p></div></div>
+            <div class="flex items-center gap-2"><span class="bg-blue-500/20 p-1 rounded">📈</span><div><p class="font-bold text-blue-400">Stock Market</p><p class="text-gray-500">? Random Flux</p></div></div>
+            <div class="flex items-center gap-2"><span class="bg-red-500/20 p-1 rounded">📺</span><div><p class="font-bold text-red-400">Subscriptions</p><p class="text-gray-500">- Wealth Leak</p></div></div>
+            <div class="flex items-center gap-2"><span class="bg-red-500/20 p-1 rounded">🛍️</span><div><p class="font-bold text-red-400">Impulse Buy</p><p class="text-gray-500">- Capital Loss</p></div></div>
+        </div>
+    </div>
+
+    <canvas id="gameCanvas"></canvas>
+
+    <div class="side-panel hidden md:block">
+        <h3 class="text-xs font-bold text-gray-500 uppercase mb-4 tracking-tighter text-center">Market Pulse</h3>
+        <div id="event-history" class="space-y-2 text-[10px]">
+            <p class="text-gray-600 italic">No activity yet...</p>
+        </div>
+    </div>
+</div>
+
+<div class="notification-feed">
+    <div id="left-notifs"></div>
+    <div id="right-notifs"></div>
+</div>
+
+<!-- Onboarding Quiz -->
+<div id="quiz-overlay" class="overlay">
+    <div class="bg-[#111] p-8 rounded-3xl max-w-sm w-full border border-[#333] text-center shadow-2xl">
+        <h2 class="text-2xl font-black mb-2 text-emerald-400 uppercase tracking-tighter">Your Financial Identity</h2>
+        <p class="text-gray-400 mb-6 text-sm">Enter your name to track your net worth milestones:</p>
+        <input type="text" id="playerName" placeholder="Investor Name" maxlength="20">
+        <div id="q-choices" class="space-y-2"></div>
+    </div>
+</div>
+
+<!-- Final Results / Share Overlay -->
+<div id="game-over" class="overlay hidden">
+    <div class="bg-[#111] p-8 rounded-3xl max-w-md w-full border border-[#333] text-center max-h-[90vh] overflow-y-auto shadow-2xl">
+        <div id="game-over-header">
+            <h1 class="text-3xl font-black text-emerald-400 mb-2">MILESTONE ACHIEVED!</h1>
+            <p id="final-stats" class="text-gray-400 mb-2 text-sm italic"></p>
+        </div>
+        
+        <div id="badge-section" class="bg-black/40 p-6 rounded-2xl border border-white/5 mb-6 relative min-h-[320px] flex flex-col justify-center">
+            <div id="art-loading" class="flex flex-col items-center gap-4">
+                <div class="loading-spinner"></div>
+                <p class="text-[10px] text-gray-500 uppercase tracking-widest">Minting Achievement Artwork...</p>
+            </div>
+            
+            <div id="badge-img-container" class="hidden">
+                <p id="badge-owner-text" class="text-[10px] text-emerald-500/80 uppercase tracking-widest font-black mb-1"></p>
+                <div id="badge-display" class="text-5xl mb-2"></div>
+                <h2 id="badge-name" class="text-2xl font-black text-white uppercase tracking-tighter mb-4"></h2>
+                <img id="badge-preview" src="" alt="Award Badge">
+                <a id="download-link" href="#" download="my-wealth-milestone.png" class="text-[10px] text-emerald-500 font-bold hover:underline block mt-4 bg-emerald-500/10 py-2 rounded">Download High-Res Badge</a>
+            </div>
+        </div>
+
+        <div class="mb-6">
+            <p class="text-[10px] text-gray-500 uppercase font-bold mb-3 tracking-widest">Social Media Story</p>
+            <div id="post-loading" class="text-[10px] text-gray-500 mb-2 italic">Gemini is drafting your viral story...</div>
+            <div id="post-actions" class="grid grid-cols-2 gap-3 hidden">
+                <button onclick="shareSocial('linkedin')" class="bg-[#0077b5] text-white py-3 rounded-xl text-xs font-bold hover:brightness-125 transition-all shadow-lg flex items-center justify-center gap-2">Share on LinkedIn</button>
+                <button onclick="shareSocial('whatsapp')" class="bg-[#25d366] text-white py-3 rounded-xl text-xs font-bold hover:brightness-125 transition-all shadow-lg flex items-center justify-center gap-2">WhatsApp</button>
+            </div>
+            <button id="copy-text-btn" onclick="copyPostText()" class="w-full mt-4 text-[10px] text-emerald-400 font-bold uppercase tracking-widest hover:text-emerald-300 transition-colors hidden">Copy Viral Post Text</button>
+        </div>
+
+        <button onclick="location.reload()" class="w-full bg-white text-black py-4 rounded-xl font-black uppercase tracking-widest hover:bg-emerald-400 transition-all">Start New Session</button>
+    </div>
+</div>
+
+<script>
+    const apiKey = ""; 
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const gridSize = 25; 
+    let tileCount;
+    
+    const FINANCIAL_ELEMENTS = [
+        { type: 'positive', label: 'Dividend', icon: '💰', value: 200 },
+        { type: 'positive', label: 'Real Estate', icon: '🏠', value: 500 },
+        { type: 'neutral', label: 'Stock Market', icon: '📈', value: 0 }, 
+        { type: 'negative', label: 'Subscription', icon: '📺', value: -150 },
+        { type: 'negative', label: 'Impulse Buy', icon: '🛍️', value: -300 }
+    ];
+
+    let snake = [{x: 10, y: 10}];
+    let foodItems = [];
+    const MAX_FOOD = 6;
+    let dx = 0;
+    let dy = 0;
+    let score = 0;
+    let isPaused = true;
+    let gameSpeed = 100;
+    let marketTimer = 30;
+    let lastTimerUpdate = Date.now();
+    let modifiers = { growth: 1.0, burn: 0, speed: 100, label: "Standard" };
+    let currentBadge = null;
+    let userName = "Investor";
+    let engagingText = "";
+
+    const questions = [
+        {
+            q: "How do you manage your money?",
+            choices: [
+                { t: "Aggressive Saver", r: { growth: 0.8, speed: 130, burn: 0, label: "Safety First" } },
+                { t: "Smart Asset Builder", r: { growth: 1.5, speed: 100, burn: 0.05, label: "Balanced Growth" } },
+                { t: "Wealth Maximizer", r: { growth: 3.0, speed: 80, burn: 0.1, label: "High Velocity" } }
+            ]
+        }
+    ];
+
+    function init() {
+        resize();
+        renderQuiz();
+    }
+
+    function resize() {
+        const size = Math.min(window.innerWidth - 40, 500);
+        canvas.width = size;
+        canvas.height = size;
+        tileCount = Math.floor(canvas.width / gridSize);
+    }
+
+    function renderQuiz() {
+        const q = questions[0];
+        const container = document.getElementById('q-choices');
+        q.choices.forEach(choice => {
+            const btn = document.createElement('button');
+            btn.className = 'btn';
+            btn.innerText = choice.t;
+            btn.onclick = () => {
+                const nameInput = document.getElementById('playerName').value;
+                if(nameInput.trim()) userName = nameInput.trim();
+                document.getElementById('playerNameDisplay').innerText = `Investor: ${userName}`;
+                modifiers = choice.r;
+                document.getElementById('quiz-overlay').classList.add('hidden');
+                document.getElementById('multiplier').innerText = modifiers.growth + "x Growth";
+                isPaused = false;
+                gameSpeed = modifiers.speed;
+                spawnMarket();
+                mainLoop();
+            };
+            container.appendChild(btn);
+        });
+    }
+
+    function spawnMarket() {
+        foodItems = [];
+        for(let i = 0; i < MAX_FOOD; i++) spawnOneFood();
+    }
+
+    function spawnOneFood() {
+        const element = FINANCIAL_ELEMENTS[Math.floor(Math.random() * FINANCIAL_ELEMENTS.length)];
+        let newX, newY, isOccupied = true;
+        while(isOccupied) {
+            newX = Math.floor(Math.random() * tileCount);
+            newY = Math.floor(Math.random() * tileCount);
+            if(!snake.some(p => p.x === newX && p.y === newY) && !foodItems.some(f => f.x === newX && f.y === newY)) isOccupied = false;
+        }
+        foodItems.push({ x: newX, y: newY, ...element });
+    }
+
+    function addNotification(label, amount, type) {
+        const containerId = type === 'negative' ? 'left-notifs' : 'right-notifs';
+        const container = document.getElementById(containerId);
+        const el = document.createElement('div');
+        const colorClass = type === 'negative' ? 'bg-red-500 text-white' : (type === 'neutral' ? 'bg-blue-500 text-white' : 'bg-emerald-500 text-black');
+        el.className = `notif ${colorClass} mb-2 shadow-lg`;
+        el.innerText = `${type === 'negative' ? '' : '+'}${amount < 0 ? '-' : ''}$${Math.abs(Math.floor(amount))} ${label}`;
+        container.prepend(el);
+        setTimeout(() => el.remove(), 2500);
+
+        const history = document.getElementById('event-history');
+        const log = document.createElement('p');
+        log.className = type === 'negative' ? 'text-red-400' : 'text-emerald-400';
+        log.innerHTML = `<span class="text-gray-600">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}</span> ${label}: ${amount < 0 ? '' : '+'}$${Math.floor(amount)}`;
+        history.prepend(log);
+        if (history.children.length > 15) history.lastChild.remove();
+    }
+
+    function updateTimer() {
+        const now = Date.now();
+        if (now - lastTimerUpdate >= 1000) {
+            marketTimer--;
+            lastTimerUpdate = now;
+            if (marketTimer <= 0) {
+                marketTimer = 30;
+                spawnMarket();
+                addNotification("Market Cycle Update", 0, "neutral");
+            }
+            document.getElementById('timer-text').innerText = marketTimer + "s";
+            document.getElementById('timer-bar').style.width = (marketTimer / 30 * 100) + "%";
+            document.getElementById('timer-bar').style.backgroundColor = marketTimer < 5 ? '#ef4444' : '#10b981';
+        }
+    }
+
+    function mainLoop() {
+        if (isPaused) return;
+        if (didGameEnd()) { triggerGameOver(); return; }
+        updateTimer();
+        setTimeout(() => {
+            clearCanvas();
+            drawFood();
+            advanceSnake();
+            drawSnake();
+            mainLoop();
+        }, gameSpeed);
+    }
+
+    function clearCanvas() {
+        ctx.fillStyle = "black";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = "#111";
+        for(let i=0; i<canvas.width; i+=gridSize) {
+            ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i, canvas.height); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width, i); ctx.stroke();
+        }
+    }
+
+    function drawSnake() {
+        snake.forEach((part, index) => {
+            ctx.fillStyle = index === 0 ? "#10b981" : "#064e3b";
+            ctx.beginPath();
+            ctx.roundRect(part.x * gridSize + 1, part.y * gridSize + 1, gridSize - 2, gridSize - 2, 6);
+            ctx.fill();
+        });
+    }
+
+    function drawFood() {
+        ctx.shadowBlur = 10;
+        foodItems.forEach(item => {
+            ctx.font = `${gridSize - 4}px Arial`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.shadowColor = item.type === 'negative' ? '#ef4444' : (item.type === 'neutral' ? '#3b82f6' : '#10b981');
+            ctx.fillText(item.icon, item.x * gridSize + gridSize/2, item.y * gridSize + gridSize/2);
+        });
+        ctx.shadowBlur = 0;
+    }
+
+    function advanceSnake() {
+        let headX = snake[0].x + dx;
+        let headY = snake[0].y + dy;
+        if (headX < 0) headX = tileCount - 1; else if (headX >= tileCount) headX = 0;
+        if (headY < 0) headY = tileCount - 1; else if (headY >= tileCount) headY = 0;
+        const head = { x: headX, y: headY };
+        snake.unshift(head);
+
+        let ateIndex = foodItems.findIndex(f => head.x === f.x && head.y === f.y);
+        if (ateIndex !== -1) {
+            const item = foodItems[ateIndex];
+            let valueToApply = item.value, type = item.type, label = item.label;
+            if (item.type === 'neutral') {
+                const isGain = Math.random() > 0.45; 
+                valueToApply = isGain ? 400 : -250;
+                type = isGain ? 'positive' : 'negative';
+                label = isGain ? "Market Rally" : "Market Crash";
+            }
+            const impact = valueToApply * modifiers.growth;
+            score += impact; if (score < 0) score = 0; 
+            addNotification(label, impact, type);
+            document.getElementById('score').innerText = "$" + Math.floor(score).toLocaleString();
+            if (type === 'negative') { if (snake.length > 2) snake.pop(); snake.pop(); }
+            foodItems.splice(ateIndex, 1);
+            spawnOneFood();
+        } else {
+            snake.pop();
+        }
+        if (modifiers.burn > 0 && Math.random() < modifiers.burn && snake.length > 3) snake.pop();
+    }
+
+    function didGameEnd() {
+        if (snake.length === 0) return true;
+        for (let i = 4; i < snake.length; i++) if (snake[i].x === snake[0].x && snake[i].y === snake[0].y) return true;
+        return false;
+    }
+
+    function getBadgeDetails(s) {
+        if (s >= 50000) return { name: "Financial Freedom Master", icon: "💎" };
+        if (s >= 20000) return { name: "Wealth Architect", icon: "🏗️" };
+        if (s >= 5000) return { name: "Prosperity Builder", icon: "📈" };
+        return { name: "Emergency Fund Hero", icon: "🛡️" };
+    }
+
+    function triggerGameOver() {
+        isPaused = true;
+        const badge = getBadgeDetails(score);
+        currentBadge = badge;
+        document.getElementById('game-over').classList.remove('hidden');
+        document.getElementById('final-stats').innerText = `Managed by ${userName}: $${Math.floor(score).toLocaleString()}`;
+        document.getElementById('badge-display').innerText = badge.icon;
+        document.getElementById('badge-name').innerText = badge.name;
+        document.getElementById('badge-owner-text').innerText = `${userName}'s Status:`;
+        
+        generateBadgeImage();
+        generateSocialPost();
+    }
+
+    function endGameManually() {
+        if (!isPaused) triggerGameOver();
+    }
+
+    async function generateBadgeImage() {
+        const artLoader = document.getElementById('art-loading');
+        const imgContainer = document.getElementById('badge-img-container');
+        
+        const prompt = `A professional 3D trophy certificate icon for ${userName} celebrating their achievement of "${currentBadge.name}" in a wealth-building application. Aesthetic: emerald green, liquid gold accents, clean glass textures, premium financial branding, 8k resolution, centered.`;
+        
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ instances: { prompt: prompt }, parameters: { sampleCount: 1 } })
+            });
+            const result = await response.json();
+            const imageUrl = `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+            
+            document.getElementById('badge-preview').src = imageUrl;
+            document.getElementById('download-link').href = imageUrl;
+            artLoader.classList.add('hidden');
+            imgContainer.classList.remove('hidden');
+        } catch (error) {
+            artLoader.innerHTML = '<p class="text-red-400 text-[10px]">Art generation offline. Using badge icon.</p>';
+            imgContainer.classList.remove('hidden');
+        }
+    }
+
+    async function generateSocialPost() {
+        const postLoading = document.getElementById('post-loading');
+        const postActions = document.getElementById('post-actions');
+        const copyBtn = document.getElementById('copy-text-btn');
+        
+        const prompt = `Write a viral, high-energy LinkedIn post for ${userName} who reached the rank of "${currentBadge.name}" in the "Wealth Snake" game by managing a portfolio of $${Math.floor(score).toLocaleString()}. The post should be about financial discipline, growth mindset, and beating the odds. Use professional but fun language, emojis, and hashtags like #WealthSnake #FinLit. Under 200 words.`;
+        
+        try {
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+            });
+            const result = await response.json();
+            engagingText = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
+            
+            postLoading.classList.add('hidden');
+            postActions.classList.remove('hidden');
+            copyBtn.classList.remove('hidden');
+        } catch (error) {
+            engagingText = `I just reached the rank of ${currentBadge.name} in Wealth Snake! Managed a portfolio of $${Math.floor(score).toLocaleString()}. Can you beat my investment strategy? #WealthSnake #Finance`;
+            postLoading.classList.add('hidden');
+            postActions.classList.remove('hidden');
+            copyBtn.classList.remove('hidden');
+        }
+    }
+
+    function shareSocial(platform) {
+        if (!engagingText) return;
+        const text = engagingText;
+        if (platform === 'linkedin') {
+            window.open(`https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(text)}`, '_blank');
+        } else if (platform === 'whatsapp') {
+            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
+        }
+    }
+
+    function copyPostText() {
+        if (!engagingText) return;
+        const dummy = document.createElement("textarea");
+        document.body.appendChild(dummy);
+        dummy.value = engagingText;
+        dummy.select();
+        document.execCommand("copy");
+        document.body.removeChild(dummy);
+        
+        const btn = document.getElementById('copy-text-btn');
+        const originalText = btn.innerText;
+        btn.innerText = "COPIED TO CLIPBOARD!";
+        setTimeout(() => btn.innerText = originalText, 2000);
+    }
+
+    function changeDir(dir) {
+        if (isPaused) return;
+        if (dir === 'left' && dx !== 1) { dx = -1; dy = 0; }
+        if (dir === 'up' && dy !== 1) { dx = 0; dy = -1; }
+        if (dir === 'right' && dx !== -1) { dx = 1; dy = 0; }
+        if (dir === 'down' && dy !== -1) { dx = 0; dy = 1; }
+    }
+
+    window.addEventListener('keydown', e => {
+        const keyMap = { 37: 'left', 38: 'up', 39: 'right', 40: 'down', 65: 'left', 87: 'up', 68: 'right', 83: 'down' };
+        if (keyMap[e.keyCode]) changeDir(keyMap[e.keyCode]);
+    });
+
+    init();
+</script>
+
+</body>
+</html>
