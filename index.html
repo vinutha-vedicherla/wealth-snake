@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wealth Snake: Wealth Ledger Edition</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;800&display=swap" rel="stylesheet">
     <style>
         body {
@@ -24,25 +25,27 @@
             display: flex;
             gap: 20px;
             align-items: flex-start;
-            max-width: 95vw;
+            max-width: 98vw;
         }
-        canvas {
+        canvas#gameCanvas {
             border: 2px solid #222;
             background-color: #000;
             box-shadow: 0 0 40px rgba(16, 185, 129, 0.1);
         }
         .side-panel {
-            width: 220px;
+            width: 240px;
             background: #111;
             border: 1px solid #333;
             border-radius: 16px;
             padding: 15px;
-            height: 500px;
+            height: 520px;
             overflow-y: auto;
+            display: flex;
+            flex-direction: column;
         }
         .notification-feed {
             position: fixed;
-            top: 20%;
+            top: 25%;
             pointer-events: none;
             width: 100%;
             display: flex;
@@ -58,14 +61,8 @@
             animation: slideIn 0.5s ease-out forwards, fadeOut 2s 1s ease-in forwards;
             opacity: 0;
         }
-        @keyframes slideIn {
-            from { transform: translateX(-20px); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes fadeOut {
-            from { opacity: 1; }
-            to { opacity: 0; }
-        }
+        @keyframes slideIn { from { transform: translateX(-20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
         .overlay {
             position: fixed;
             inset: 0;
@@ -77,11 +74,11 @@
         }
         .btn {
             width: 100%;
-            padding: 14px;
-            margin-top: 10px;
+            padding: 12px;
+            margin-top: 8px;
             background: #222;
             color: white;
-            border-radius: 12px;
+            border-radius: 10px;
             border: 1px solid #444;
             cursor: pointer;
             font-weight: 600;
@@ -90,25 +87,15 @@
             align-items: center;
             justify-content: center;
             gap: 8px;
+            font-size: 0.85rem;
         }
         .btn:hover:not(:disabled) { background: #10b981; color: black; border-color: #10b981; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn:disabled { opacity: 0.3; cursor: not-allowed; }
         .hidden { display: none !important; }
         
-        .timer-bar {
-            height: 4px;
-            background: #10b981;
-            width: 100%;
-            transition: width 1s linear;
-        }
-
-        #badge-preview {
-            max-width: 220px;
-            border-radius: 12px;
-            margin: 10px auto;
-            border: 2px solid #10b981;
-            box-shadow: 0 0 30px rgba(16, 185, 129, 0.3);
-        }
+        .timer-bar { height: 4px; background: #10b981; width: 100%; transition: width 1s linear; }
+        .progress-step { height: 4px; flex: 1; background: #333; border-radius: 2px; transition: background 0.3s; }
+        .progress-step.active { background: #10b981; }
 
         .loading-spinner {
             border: 3px solid rgba(255,255,255,0.1);
@@ -121,62 +108,142 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         input {
-            background: #222;
-            border: 1px solid #444;
-            padding: 12px;
-            border-radius: 12px;
-            color: white;
-            width: 100%;
-            margin-bottom: 15px;
-            text-align: center;
-            font-weight: bold;
+            background: #222; border: 1px solid #444; padding: 10px; border-radius: 10px;
+            color: white; width: 100%; margin-bottom: 10px; text-align: center; font-weight: bold;
         }
         input:focus { border-color: #10b981; outline: none; }
+
+        #pause-indicator {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: rgba(16, 185, 129, 0.9); color: black; padding: 20px 40px; border-radius: 20px;
+            font-weight: 900; text-transform: uppercase; font-size: 2rem; pointer-events: none; z-index: 60; display: none;
+        }
+
+        .ai-tip-box {
+            background: rgba(16, 185, 129, 0.05);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            padding: 10px;
+            border-radius: 10px;
+            margin-top: 10px;
+            font-size: 0.75rem;
+            line-height: 1.4;
+            color: #ccc;
+        }
+
+        .manual-grid-item {
+            background: #1a1a1a;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid #333;
+        }
+
+        #chart-header {
+            width: 100%;
+            max-width: 1100px;
+            height: 150px;
+            margin-bottom: 10px;
+            background: #111;
+            border: 1px solid #222;
+            border-radius: 16px;
+            padding: 12px;
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+        .chart-container {
+            flex-grow: 1;
+            height: 100%;
+            position: relative;
+        }
+        .stats-summary {
+            width: 220px;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            padding: 4px 0;
+            border-bottom: 1px solid #222;
+        }
     </style>
 </head>
 <body>
 
-<div id="ui" class="w-full max-w-[950px] px-4 mb-4 flex justify-between items-end">
-    <div class="flex items-end gap-4">
-        <div>
-            <div class="text-[10px] text-gray-500 uppercase font-bold tracking-widest">Net Worth</div>
-            <div id="score" class="text-4xl font-black text-emerald-400">$0</div>
+<div id="chart-header">
+    <div class="stats-summary">
+        <div class="text-[9px] uppercase font-bold text-gray-500 tracking-widest mb-1">Portfolio Assets</div>
+        <div class="stat-item">
+            <span class="text-emerald-400 font-bold uppercase tracking-tighter">Active Now</span> 
+            <span id="score-val" class="font-black">$0</span>
         </div>
-        <button onclick="endGameManually()" class="bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-bold px-3 py-1 rounded border border-red-500/20 uppercase tracking-tighter mb-1 transition-colors pointer-events-auto">Cash Out</button>
+        <div class="stat-item">
+            <span class="text-blue-400 font-bold uppercase tracking-tighter">Savings</span> 
+            <span id="saved-val" class="font-black">$0</span>
+        </div>
+        <div class="stat-item">
+            <span class="text-yellow-500 font-bold uppercase tracking-tighter">IUL Shield</span> 
+            <span id="iul-val" class="font-black">$0</span>
+        </div>
+        <div class="stat-item">
+            <span class="text-gray-400 font-bold uppercase tracking-tighter">Income</span> 
+            <span id="salary-val" class="font-black">$500</span>
+        </div>
+        <div class="flex gap-2 mt-2">
+            <button id="manualBankBtn" onclick="manualBankTransfer()" class="flex-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[8px] font-bold py-1 rounded border border-blue-500/20 uppercase transition-colors pointer-events-auto disabled:opacity-30">Bank Now</button>
+            <button id="manualIULBtn" onclick="manualIULTransfer()" class="flex-1 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 text-[8px] font-bold py-1 rounded border border-yellow-500/20 uppercase transition-colors pointer-events-auto disabled:opacity-30">Shield Now</button>
+        </div>
     </div>
-    
-    <div class="flex-1 px-8 text-center max-w-[300px]">
-        <div class="text-[10px] text-gray-500 uppercase font-bold tracking-widest mb-1">Market Cycle</div>
-        <div class="bg-gray-800 rounded-full overflow-hidden">
+
+    <div class="chart-container">
+        <canvas id="growthChart"></canvas>
+    </div>
+
+    <div class="w-[220px] flex flex-col justify-between h-full">
+        <div class="text-right">
+            <div id="playerNameDisplay" class="text-[10px] font-black text-emerald-500 uppercase truncate">Investor: --</div>
+            <div id="strategyDisplay" class="text-[8px] text-gray-500 uppercase mb-1">Strategy: --</div>
+            <div id="tenureText" class="text-xs font-black text-white">Tenure: 0y 0m</div>
+            <div id="levelDisplay" class="text-[9px] text-emerald-500 font-bold uppercase border border-emerald-500/20 inline-block px-2 rounded mt-1">Level: Entry</div>
+        </div>
+        <div class="text-center mb-1">
+            <a href="javascript:void(0)" onclick="openManual()" class="text-[10px] font-bold text-emerald-500 hover:underline uppercase tracking-widest">📖 Strategy Manual</a>
+        </div>
+        <div class="bg-gray-800 h-1.5 rounded-full overflow-hidden mb-2">
             <div id="timer-bar" class="timer-bar"></div>
         </div>
-        <div id="timer-text" class="text-xs font-bold mt-1 text-emerald-500">30s</div>
-    </div>
-    
-    <div class="text-right">
-        <div id="playerNameDisplay" class="text-xs font-bold text-gray-400 mb-1 tracking-tighter uppercase">Investor: --</div>
-        <div id="multiplier" class="text-xs text-emerald-500 font-bold uppercase">1.0x Growth</div>
+        <div class="flex gap-1">
+            <button id="pauseBtn" onclick="togglePause()" class="flex-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[9px] font-bold py-1.5 rounded border border-blue-500/20 uppercase transition-colors pointer-events-auto">Pause</button>
+            <button id="resetBtn" onclick="location.reload()" class="flex-1 bg-gray-500/10 hover:bg-gray-500/20 text-gray-400 text-[9px] font-bold py-1.5 rounded border border-gray-500/20 uppercase transition-colors pointer-events-auto">Reset</button>
+            <button id="cashOutBtn" onclick="endGameManually()" class="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[9px] font-bold py-1.5 rounded border border-red-500/20 uppercase transition-colors pointer-events-auto">Retire</button>
+        </div>
     </div>
 </div>
 
-<div id="game-container">
-    <div class="side-panel hidden md:block">
-        <h3 class="text-xs font-bold text-gray-500 uppercase mb-4 tracking-tighter text-center">Market Guide</h3>
-        <div class="space-y-4 text-xs">
-            <div class="flex items-center gap-2"><span class="bg-emerald-500/20 p-1 rounded">💰</span><div><p class="font-bold text-emerald-400">Dividends</p><p class="text-gray-500">+ High Growth</p></div></div>
-            <div class="flex items-center gap-2"><span class="bg-emerald-500/20 p-1 rounded">🏠</span><div><p class="font-bold text-emerald-400">Real Estate</p><p class="text-gray-500">+ Stable Assets</p></div></div>
-            <div class="flex items-center gap-2"><span class="bg-blue-500/20 p-1 rounded">📈</span><div><p class="font-bold text-blue-400">Stock Market</p><p class="text-gray-500">? Random Flux</p></div></div>
-            <div class="flex items-center gap-2"><span class="bg-red-500/20 p-1 rounded">📺</span><div><p class="font-bold text-red-400">Subscriptions</p><p class="text-gray-500">- Wealth Leak</p></div></div>
-            <div class="flex items-center gap-2"><span class="bg-red-500/20 p-1 rounded">🛍️</span><div><p class="font-bold text-red-400">Impulse Buy</p><p class="text-gray-500">- Capital Loss</p></div></div>
+<div id="game-container" class="relative">
+    <div id="pause-indicator">Paused</div>
+
+    <div class="side-panel hidden md:flex">
+        <h3 class="text-xs font-bold text-gray-500 uppercase mb-4 tracking-tighter text-center border-b border-gray-800 pb-2">Advisor Hub</h3>
+        <div id="guide-list" class="space-y-3 text-[10px]"></div>
+        
+        <div class="mt-auto space-y-2">
+            <div id="ai-advisor-response" class="ai-tip-box hidden"></div>
+            <button id="advisorBtn" onclick="getAIAdvice()" class="btn !bg-emerald-600/10 !text-emerald-400 border-emerald-600/30">
+                <span>✨ AI Strategy Tip</span>
+            </button>
+            <button onclick="openManual()" class="w-full text-[10px] text-gray-500 font-black uppercase tracking-widest hover:underline pt-2">Strategy Manual</button>
         </div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
-    <div class="side-panel hidden md:block">
-        <h3 class="text-xs font-bold text-gray-500 uppercase mb-4 tracking-tighter text-center">Market Pulse</h3>
-        <div id="event-history" class="space-y-2 text-[10px]">
-            <p class="text-gray-600 italic">No activity yet...</p>
+    <div class="side-panel hidden md:flex">
+        <h3 class="text-xs font-bold text-gray-500 uppercase mb-4 tracking-tighter text-center border-b border-gray-800 pb-2">Financial Log</h3>
+        <div id="event-history" class="space-y-2 text-[9px]">
+            <p class="text-gray-600 italic">Market pulse active...</p>
         </div>
     </div>
 </div>
@@ -186,50 +253,90 @@
     <div id="right-notifs"></div>
 </div>
 
-<!-- Onboarding Quiz -->
-<div id="quiz-overlay" class="overlay">
-    <div class="bg-[#111] p-8 rounded-3xl max-w-sm w-full border border-[#333] text-center shadow-2xl">
-        <h2 class="text-2xl font-black mb-2 text-emerald-400 uppercase tracking-tighter">Your Financial Identity</h2>
-        <p class="text-gray-400 mb-6 text-sm">Enter your name to track your net worth milestones:</p>
-        <input type="text" id="playerName" placeholder="Investor Name" maxlength="20">
-        <div id="q-choices" class="space-y-2"></div>
+<!-- Manual Overlay -->
+<div id="manual-overlay" class="overlay hidden">
+    <div class="bg-[#111] p-8 rounded-3xl max-w-2xl w-full border border-[#333] shadow-2xl overflow-y-auto max-h-[90vh]">
+        <h2 class="text-3xl font-black mb-6 text-emerald-400 uppercase tracking-tighter text-center">Investment Strategy Manual</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+            <div class="manual-grid-item">
+                <p class="font-black text-white mb-1">💼 SALARY & INCOME</p>
+                <p class="text-gray-400 text-xs">Monthly deposits (every 30s cycle). Raises occur annually based on performance and tenure.</p>
+            </div>
+            <div class="manual-grid-item">
+                <p class="font-black text-yellow-400 mb-1">🛡️ IUL SHIELDING</p>
+                <p class="text-gray-400 text-xs">Completely skips taxes. Compounds at avg 6% annually. Best for securing retirement and emergency funds.</p>
+            </div>
+            <div class="manual-grid-item">
+                <p class="font-black text-emerald-400 mb-1">💰 AUTO-DIVIDENDS</p>
+                <p class="text-gray-400 text-xs">Acquiring 💰 increases your permanent dividend asset base. Payouts are automated every month.</p>
+            </div>
+            <div class="manual-grid-item">
+                <p class="font-black text-blue-400 mb-1">🏦 SECURE SAVINGS</p>
+                <p class="text-gray-400 text-xs">Bank active cash. Shrinks your snake to reset your risk level. Essential to avoid self-collision.</p>
+            </div>
+        </div>
+        <button onclick="closeManual()" class="btn !bg-emerald-600 !text-black mt-8">Back to Portfolio</button>
     </div>
 </div>
 
-<!-- Final Results / Share Overlay -->
+<!-- Onboarding Quiz -->
+<div id="quiz-overlay" class="overlay">
+    <div class="bg-[#111] p-8 rounded-3xl max-w-sm w-full border border-[#333] text-center shadow-2xl">
+        <div id="onboarding-step-1">
+            <h2 class="text-2xl font-black mb-2 text-emerald-400 uppercase tracking-tighter">Private Wealth Portal</h2>
+            <p class="text-gray-400 mb-6 text-sm">Enter your name to open your private wealth account:</p>
+            <input type="text" id="playerName" placeholder="Investor Name" maxlength="20">
+            <button onclick="startSurvey()" class="btn !bg-emerald-600 !text-black">Start Discovery Assessment</button>
+            <button onclick="skipSurvey()" class="mt-4 text-[10px] text-gray-500 uppercase font-bold hover:text-white transition-colors">Skip to Default Profile</button>
+        </div>
+        <div id="survey-container" class="hidden">
+            <div class="flex gap-1 mb-6" id="progress-bar">
+                <div class="progress-step"></div><div class="progress-step"></div><div class="progress-step"></div><div class="progress-step"></div><div class="progress-step"></div><div class="progress-step"></div>
+            </div>
+            <h2 id="survey-q" class="text-lg font-bold mb-4 text-white"></h2>
+            <div id="survey-choices" class="space-y-2"></div>
+        </div>
+    </div>
+</div>
+
+<!-- Results Overlay -->
 <div id="game-over" class="overlay hidden">
     <div class="bg-[#111] p-8 rounded-3xl max-w-md w-full border border-[#333] text-center max-h-[90vh] overflow-y-auto shadow-2xl">
         <div id="game-over-header">
-            <h1 class="text-3xl font-black text-emerald-400 mb-2">MILESTONE ACHIEVED!</h1>
+            <h1 id="gameOverTitle" class="text-3xl font-black mb-2 uppercase">Portfolio Results</h1>
             <p id="final-stats" class="text-gray-400 mb-2 text-sm italic"></p>
         </div>
         
-        <div id="badge-section" class="bg-black/40 p-6 rounded-2xl border border-white/5 mb-6 relative min-h-[320px] flex flex-col justify-center">
+        <div id="ai-review-box" class="bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/10 mb-4 text-[11px] italic text-emerald-200 text-left">
+            <p class="text-[9px] font-bold uppercase tracking-widest text-emerald-500 mb-1">✨ AI Performance Audit</p>
+            <div id="ai-review-text">Generating appraisal...</div>
+        </div>
+
+        <div id="badge-section" class="bg-black/40 p-6 rounded-2xl border border-white/5 mb-6 relative min-h-[300px] flex flex-col justify-center">
             <div id="art-loading" class="flex flex-col items-center gap-4">
                 <div class="loading-spinner"></div>
                 <p class="text-[10px] text-gray-500 uppercase tracking-widest">Minting Achievement Artwork...</p>
             </div>
-            
             <div id="badge-img-container" class="hidden">
                 <p id="badge-owner-text" class="text-[10px] text-emerald-500/80 uppercase tracking-widest font-black mb-1"></p>
                 <div id="badge-display" class="text-5xl mb-2"></div>
                 <h2 id="badge-name" class="text-2xl font-black text-white uppercase tracking-tighter mb-4"></h2>
                 <img id="badge-preview" src="" alt="Award Badge">
-                <a id="download-link" href="#" download="my-wealth-milestone.png" class="text-[10px] text-emerald-500 font-bold hover:underline block mt-4 bg-emerald-500/10 py-2 rounded">Download High-Res Badge</a>
+                <a id="download-link" href="#" download="wealth-badge.png" class="text-[10px] text-emerald-500 font-bold hover:underline block mt-4 bg-emerald-500/10 py-2 rounded">Download Badge</a>
             </div>
         </div>
 
         <div class="mb-6">
-            <p class="text-[10px] text-gray-500 uppercase font-bold mb-3 tracking-widest">Social Media Story</p>
-            <div id="post-loading" class="text-[10px] text-gray-500 mb-2 italic">Gemini is drafting your viral story...</div>
+            <p class="text-[10px] text-gray-500 uppercase font-bold mb-3 tracking-widest">Share Achievement</p>
+            <div id="post-loading" class="text-[10px] text-gray-500 mb-2 italic">Gemini is drafting your story...</div>
             <div id="post-actions" class="grid grid-cols-2 gap-3 hidden">
-                <button onclick="shareSocial('linkedin')" class="bg-[#0077b5] text-white py-3 rounded-xl text-xs font-bold hover:brightness-125 transition-all shadow-lg flex items-center justify-center gap-2">Share on LinkedIn</button>
-                <button onclick="shareSocial('whatsapp')" class="bg-[#25d366] text-white py-3 rounded-xl text-xs font-bold hover:brightness-125 transition-all shadow-lg flex items-center justify-center gap-2">WhatsApp</button>
+                <button onclick="shareSocial('linkedin')" class="bg-[#0077b5] text-white py-3 rounded-xl text-xs font-bold hover:brightness-125 transition-all shadow-lg">LinkedIn</button>
+                <button onclick="shareSocial('whatsapp')" class="bg-[#25d366] text-white py-3 rounded-xl text-xs font-bold hover:brightness-125 transition-all shadow-lg">WhatsApp</button>
             </div>
-            <button id="copy-text-btn" onclick="copyPostText()" class="w-full mt-4 text-[10px] text-emerald-400 font-bold uppercase tracking-widest hover:text-emerald-300 transition-colors hidden">Copy Viral Post Text</button>
+            <button id="copy-text-btn" onclick="copyPostText()" class="w-full mt-4 text-[10px] text-emerald-400 font-bold uppercase tracking-widest hover:text-emerald-300 hidden">Copy Post Text</button>
         </div>
 
-        <button onclick="location.reload()" class="w-full bg-white text-black py-4 rounded-xl font-black uppercase tracking-widest hover:bg-emerald-400 transition-all">Start New Session</button>
+        <button onclick="location.reload()" class="w-full bg-white text-black py-4 rounded-xl font-black uppercase tracking-widest hover:bg-emerald-400 transition-all">New Investment Cycle</button>
     </div>
 </div>
 
@@ -241,318 +348,462 @@
     let tileCount;
     
     const FINANCIAL_ELEMENTS = [
-        { type: 'positive', label: 'Dividend', icon: '💰', value: 200 },
+        { type: 'positive', label: 'Dividend Asset', icon: '💰', value: 100 },
         { type: 'positive', label: 'Real Estate', icon: '🏠', value: 500 },
         { type: 'neutral', label: 'Stock Market', icon: '📈', value: 0 }, 
         { type: 'negative', label: 'Subscription', icon: '📺', value: -150 },
-        { type: 'negative', label: 'Impulse Buy', icon: '🛍️', value: -300 }
+        { type: 'negative', label: 'Impulse Buy', icon: '🛍️', value: -300 },
+        { type: 'critical', label: 'Emergency', icon: '🚨', value: -800 },
+        { type: 'bank', label: 'Secure Savings', icon: '🏦', value: 0 },
+        { type: 'iul', label: 'Shield Wealth (IUL)', icon: '🛡️', value: 0 }
     ];
 
     let snake = [{x: 10, y: 10}];
     let foodItems = [];
-    const MAX_FOOD = 6;
-    let dx = 0;
-    let dy = 0;
+    const MAX_FOOD = 7;
+    let dx = 0; let dy = 0;
     let score = 0;
+    let savedScore = 0; 
+    let iulScore = 0;
+    let dividendAssets = 0;
+    
     let isPaused = true;
     let gameSpeed = 100;
+    let monthsPassed = 0;
+    let yearsPassed = 0;
     let marketTimer = 30;
     let lastTimerUpdate = Date.now();
-    let modifiers = { growth: 1.0, burn: 0, speed: 100, label: "Standard" };
-    let currentBadge = null;
+    let lastTaxTime = Date.now();
+    let gameStartTime = Date.now();
+
+    let modifiers = { 
+        growth: 1.0, burn: 0.02, speed: 100, label: "Balanced",
+        taxRate: 0.15, inflationRate: 0.05, emergencyResilience: 1.0,
+        aggressiveness: 1.0, savingsApy: 0.02, iulApy: 0.06, monthlySalary: 500 
+    };
+
     let userName = "Investor";
     let engagingText = "";
+    let currentSurveyStep = 0;
 
-    const questions = [
-        {
-            q: "How do you manage your money?",
-            choices: [
-                { t: "Aggressive Saver", r: { growth: 0.8, speed: 130, burn: 0, label: "Safety First" } },
-                { t: "Smart Asset Builder", r: { growth: 1.5, speed: 100, burn: 0.05, label: "Balanced Growth" } },
-                { t: "Wealth Maximizer", r: { growth: 3.0, speed: 80, burn: 0.1, label: "High Velocity" } }
-            ]
-        }
+    let growthChart;
+
+    const surveyQuestions = [
+        { q: "Monthly savings rate?", choices: [{ t: "< 10%", r: { burn: 0.1, score: -100 } }, { t: "10-30%", r: { burn: 0.05, score: 0 } }, { t: "> 50%", r: { burn: 0.01, score: 200 } }] },
+        { q: "Choose your Career Path:", choices: [{ t: "Generalist ($500 base)", r: { monthlySalary: 500, taxRate: 0.15 } }, { t: "Specialist ($1,200 base)", r: { monthlySalary: 1200, taxRate: 0.22 } }, { t: "Entrepreneur ($0 base)", r: { monthlySalary: 0, growth: 2.0, aggressiveness: 2.0 } }] },
+        { q: "Portfolio Aggressiveness?", choices: [{ t: "Conservative", r: { aggressiveness: 0.6, growth: 0.8, speed: 120, label: "Conservative" } }, { t: "Balanced", r: { aggressiveness: 1.0, growth: 1.3, speed: 100, label: "Balanced" } }, { t: "Aggressive", r: { aggressiveness: 2.0, growth: 2.5, speed: 85, label: "Aggressive" } }] },
+        { q: "Emergency Fund?", choices: [{ t: "None", r: { emergencyResilience: 2.5 } }, { t: "Partial", r: { emergencyResilience: 1.2 } }, { t: "Full", r: { emergencyResilience: 0.5 } }] },
+        { q: "Tax Planning?", choices: [{ t: "Reactive", r: { taxRate: 0.25 } }, { t: "Proactive", r: { taxRate: 0.15 } }, { t: "Strategic", r: { taxRate: 0.08 } }] },
+        { q: "Core Motivation?", choices: [{ t: "Retire Early", r: { inflationRate: 0.1, growth: 1.2 } }, { t: "Legacy", r: { inflationRate: 0.05, growth: 1.0 } }, { t: "Power", r: { inflationRate: 0.15, growth: 1.8 } }] }
     ];
+
+    async function callGemini(prompt, systemInstruction = "You are a witty financial AI expert.") {
+        let delay = 1000;
+        for (let i = 0; i < 5; i++) {
+            try {
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }],
+                        systemInstruction: { parts: [{ text: systemInstruction }] }
+                    })
+                });
+                const result = await response.json();
+                return result.candidates?.[0]?.content?.parts?.[0]?.text;
+            } catch (error) {
+                if (i === 4) throw error;
+                await new Promise(r => setTimeout(r, delay));
+                delay *= 2;
+            }
+        }
+    }
+
+    async function getAIAdvice() {
+        const btn = document.getElementById('advisorBtn');
+        const box = document.getElementById('ai-advisor-response');
+        if (!btn || !box) return;
+        btn.disabled = true; btn.innerHTML = '<span>✨ Analyzing...</span>';
+        const prompt = `Active: $${score}, Saved: $${savedScore}, IUL: $${iulScore}, Salary: $${modifiers.monthlySalary}, Tenure: ${yearsPassed}y. Advice in 15 words.`;
+        try {
+            const tip = await callGemini(prompt, "You are a professional wealth advisor.");
+            box.innerText = tip; box.classList.remove('hidden');
+        } catch (e) { box.innerText = "Audit lag."; box.classList.remove('hidden'); }
+        finally { btn.innerHTML = '<span>✨ AI Strategy Tip</span>'; btn.disabled = false; }
+    }
+
+    async function generateMarketNews() {
+        const prompt = "5-word financial news headline explaining a market cycles shift.";
+        try {
+            const headline = await callGemini(prompt, "Financial news anchor.");
+            addNotification(`✨ NEWS: ${headline}`, 0, "neutral");
+        } catch (e) {}
+    }
+
+    async function checkSalaryHike() {
+        if (yearsPassed > 0 && monthsPassed === 0) {
+            const prompt = `Witty career hike headline for ${userName} at ${yearsPassed}y. Max 10 words.`;
+            try {
+                const hikeText = await callGemini(prompt, "Witty HR manager.");
+                const increase = Math.floor(modifiers.monthlySalary * 0.15);
+                modifiers.monthlySalary += increase;
+                addNotification(`💼 ${hikeText}`, increase, "positive");
+                const salaryEl = document.getElementById('salary-val');
+                if (salaryEl) salaryEl.innerText = "$" + modifiers.monthlySalary.toLocaleString();
+            } catch (e) {}
+        }
+    }
 
     function init() {
         resize();
-        renderQuiz();
+        populateGuide();
+        initChart();
     }
 
-    function resize() {
-        const size = Math.min(window.innerWidth - 40, 500);
-        canvas.width = size;
-        canvas.height = size;
-        tileCount = Math.floor(canvas.width / gridSize);
+    function initChart() {
+        const chartCtx = document.getElementById('growthChart').getContext('2d');
+        if (!chartCtx) return;
+        growthChart = new Chart(chartCtx, {
+            type: 'line',
+            data: {
+                labels: ['Start'],
+                datasets: [
+                    { label: 'Active', data: [0.1], borderColor: '#10b981', backgroundColor: 'rgba(16, 185, 129, 0.1)', fill: true, tension: 0.4, borderWidth: 2, pointRadius: 0 },
+                    { label: 'Saved', data: [0.1], borderColor: '#3b82f6', backgroundColor: 'rgba(59, 130, 246, 0.1)', fill: true, tension: 0.4, borderWidth: 2, pointRadius: 0 },
+                    { label: 'IUL', data: [0.1], borderColor: '#eab308', backgroundColor: 'rgba(234, 179, 8, 0.1)', fill: true, tension: 0.4, borderWidth: 2, pointRadius: 0 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false }, tooltip: { enabled: true } },
+                scales: {
+                    x: { display: false },
+                    y: {
+                        type: 'logarithmic',
+                        display: true,
+                        grid: { color: '#222' },
+                        ticks: {
+                            color: '#555',
+                            callback: function(value) { return '$' + value.toLocaleString(); }
+                        }
+                    }
+                }
+            }
+        });
     }
 
-    function renderQuiz() {
-        const q = questions[0];
-        const container = document.getElementById('q-choices');
-        q.choices.forEach(choice => {
+    function updateChart() {
+        if (!growthChart) return;
+        const isNegative = score < 0 || savedScore < 0 || iulScore < 0;
+        growthChart.options.scales.y.type = isNegative ? 'linear' : 'logarithmic';
+        const label = `${yearsPassed}y ${monthsPassed}m`;
+        growthChart.data.labels.push(label);
+        const eps = isNegative ? 0 : 0.1;
+        growthChart.data.datasets[0].data.push(score + eps);
+        growthChart.data.datasets[1].data.push(savedScore + eps);
+        growthChart.data.datasets[2].data.push(iulScore + eps);
+        if (growthChart.data.labels.length > 48) {
+            growthChart.data.labels.shift();
+            growthChart.data.datasets.forEach(d => d.data.shift());
+        }
+        growthChart.update('none');
+    }
+
+    function togglePause() {
+        if (!isGameActive()) return; 
+        if (isPaused) { isPaused = false; document.getElementById('pauseBtn').innerText = 'Pause'; document.getElementById('pause-indicator').style.display = 'none'; mainLoop(); }
+        else { isPaused = true; document.getElementById('pauseBtn').innerText = 'Resume'; document.getElementById('pause-indicator').style.display = 'block'; }
+    }
+
+    function isGameActive() { 
+        return document.getElementById('quiz-overlay').classList.contains('hidden') && 
+               document.getElementById('game-over').classList.contains('hidden'); 
+    }
+    
+    function openManual() { if (!isPaused) togglePause(); document.getElementById('manual-overlay').classList.remove('hidden'); }
+    function closeManual() { document.getElementById('manual-overlay').classList.add('hidden'); if (isPaused) togglePause(); }
+
+    function populateGuide() {
+        const list = document.getElementById('guide-list');
+        if (!list) return;
+        list.innerHTML = FINANCIAL_ELEMENTS.map(item => `
+            <div class="flex items-center gap-2">
+                <span class="bg-gray-800 p-1 rounded">${item.icon}</span>
+                <div>
+                    <p class="font-bold ${item.type === 'positive' ? 'text-emerald-400' : (item.type === 'critical' ? 'text-red-500' : (item.type === 'bank' ? 'text-blue-400' : (item.type === 'iul' ? 'text-yellow-400' : 'text-gray-300')))}">${item.label}</p>
+                    <p class="text-[7px] text-gray-500 uppercase tracking-tighter">${item.type === 'bank' ? 'Taxable Bank' : (item.type === 'iul' ? 'Tax-Free Growth' : 'Market Flow')}</p>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    function startSurvey() {
+        const nameInput = document.getElementById('playerName');
+        if (!nameInput) return;
+        userName = nameInput.value.trim() || "Investor";
+        
+        const nameDisplay = document.getElementById('playerNameDisplay');
+        if (nameDisplay) nameDisplay.innerText = `Investor: ${userName}`;
+        
+        document.getElementById('onboarding-step-1').classList.add('hidden');
+        document.getElementById('survey-container').classList.remove('hidden');
+        showNextQuestion();
+    }
+
+    function skipSurvey() {
+        const nameInput = document.getElementById('playerName');
+        if (!nameInput) return;
+        userName = nameInput.value.trim() || "Investor";
+        
+        const nameDisplay = document.getElementById('playerNameDisplay');
+        if (nameDisplay) nameDisplay.innerText = `Investor: ${userName}`;
+        
+        finalizeSetup();
+    }
+
+    function showNextQuestion() {
+        const steps = document.querySelectorAll('.progress-step');
+        steps.forEach((s, i) => i <= currentSurveyStep ? s.classList.add('active') : s.classList.remove('active'));
+        const q = surveyQuestions[currentSurveyStep];
+        const qText = document.getElementById('survey-q');
+        if (qText) qText.innerText = q.q;
+        const container = document.getElementById('survey-choices');
+        if (!container) return;
+        container.innerHTML = '';
+        q.choices.forEach(c => {
             const btn = document.createElement('button');
-            btn.className = 'btn';
-            btn.innerText = choice.t;
+            btn.className = 'btn'; btn.innerText = c.t;
             btn.onclick = () => {
-                const nameInput = document.getElementById('playerName').value;
-                if(nameInput.trim()) userName = nameInput.trim();
-                document.getElementById('playerNameDisplay').innerText = `Investor: ${userName}`;
-                modifiers = choice.r;
-                document.getElementById('quiz-overlay').classList.add('hidden');
-                document.getElementById('multiplier').innerText = modifiers.growth + "x Growth";
-                isPaused = false;
-                gameSpeed = modifiers.speed;
-                spawnMarket();
-                mainLoop();
+                Object.assign(modifiers, c.r);
+                if(c.r.score) score += c.r.score;
+                currentSurveyStep++;
+                if (currentSurveyStep < surveyQuestions.length) showNextQuestion();
+                else finalizeSetup();
             };
             container.appendChild(btn);
         });
     }
 
-    function spawnMarket() {
-        foodItems = [];
-        for(let i = 0; i < MAX_FOOD; i++) spawnOneFood();
+    function finalizeSetup() {
+        document.getElementById('quiz-overlay').classList.add('hidden');
+        const salaryVal = document.getElementById('salary-val');
+        if (salaryVal) salaryVal.innerText = "$" + modifiers.monthlySalary.toLocaleString();
+        
+        const strategyDisplay = document.getElementById('strategyDisplay');
+        if (strategyDisplay) strategyDisplay.innerText = `Strategy: ${modifiers.label}`;
+        
+        const nameDisplay = document.getElementById('playerNameDisplay');
+        if (nameDisplay) nameDisplay.innerText = `Investor: ${userName}`;
+
+        // Immediate first payday
+        score += modifiers.monthlySalary;
+        addNotification("Sign-on Bonus", modifiers.monthlySalary, "positive");
+
+        isPaused = false; gameSpeed = modifiers.speed; gameStartTime = Date.now();
+        spawnMarket(); mainLoop();
     }
 
+    function resize() {
+        const size = Math.min(window.innerWidth - 40, 500);
+        canvas.width = size; canvas.height = size;
+        tileCount = Math.floor(canvas.width / gridSize);
+    }
+
+    function spawnMarket() { foodItems = []; for(let i = 0; i < MAX_FOOD; i++) spawnOneFood(); }
     function spawnOneFood() {
         const element = FINANCIAL_ELEMENTS[Math.floor(Math.random() * FINANCIAL_ELEMENTS.length)];
         let newX, newY, isOccupied = true;
         while(isOccupied) {
-            newX = Math.floor(Math.random() * tileCount);
-            newY = Math.floor(Math.random() * tileCount);
+            newX = Math.floor(Math.random() * tileCount); newY = Math.floor(Math.random() * tileCount);
             if(!snake.some(p => p.x === newX && p.y === newY) && !foodItems.some(f => f.x === newX && f.y === newY)) isOccupied = false;
         }
         foodItems.push({ x: newX, y: newY, ...element });
     }
 
     function addNotification(label, amount, type) {
-        const containerId = type === 'negative' ? 'left-notifs' : 'right-notifs';
+        const containerId = type === 'negative' || type === 'critical' ? 'left-notifs' : 'right-notifs';
         const container = document.getElementById(containerId);
+        if (!container) return;
         const el = document.createElement('div');
-        const colorClass = type === 'negative' ? 'bg-red-500 text-white' : (type === 'neutral' ? 'bg-blue-500 text-white' : 'bg-emerald-500 text-black');
+        const colorClass = type === 'negative' || type === 'critical' ? 'bg-red-500 text-white' : (type === 'bank' ? 'bg-blue-600 text-white' : (type === 'iul' ? 'bg-yellow-600 text-black' : 'bg-emerald-500 text-black'));
         el.className = `notif ${colorClass} mb-2 shadow-lg`;
-        el.innerText = `${type === 'negative' ? '' : '+'}${amount < 0 ? '-' : ''}$${Math.abs(Math.floor(amount))} ${label}`;
-        container.prepend(el);
-        setTimeout(() => el.remove(), 2500);
-
+        el.innerText = (amount !== 0 ? `${amount < 0 ? '-' : '+'}$${Math.abs(Math.floor(amount))} ` : '') + label;
+        container.prepend(el); setTimeout(() => el.remove(), 3500);
         const history = document.getElementById('event-history');
-        const log = document.createElement('p');
-        log.className = type === 'negative' ? 'text-red-400' : 'text-emerald-400';
-        log.innerHTML = `<span class="text-gray-600">${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'})}</span> ${label}: ${amount < 0 ? '' : '+'}$${Math.floor(amount)}`;
-        history.prepend(log);
-        if (history.children.length > 15) history.lastChild.remove();
+        if (history) {
+            const log = document.createElement('p');
+            log.className = type === 'negative' || type === 'critical' ? 'text-red-400' : (type === 'bank' ? 'text-blue-400' : (type === 'iul' ? 'text-yellow-400' : 'text-emerald-400'));
+            log.innerHTML = `<span class="text-gray-600">${new Date().toLocaleTimeString([], {second:'2-digit'})}</span> ${label}`;
+            history.prepend(log); if (history.children.length > 15) history.lastChild.remove();
+        }
     }
 
-    function updateTimer() {
+    function applyEconomicFactors() {
         const now = Date.now();
-        if (now - lastTimerUpdate >= 1000) {
-            marketTimer--;
-            lastTimerUpdate = now;
-            if (marketTimer <= 0) {
-                marketTimer = 30;
-                spawnMarket();
-                addNotification("Market Cycle Update", 0, "neutral");
+        if (now - lastTaxTime >= 45000) {
+            if (score > 0 || savedScore > 0) {
+                const activeTax = score > 0 ? score * modifiers.taxRate : 0;
+                const savingsTax = savedScore > 0 ? savedScore * (modifiers.taxRate * 0.5) : 0;
+                score -= activeTax;
+                savedScore -= savingsTax;
+                addNotification("Tax Audit", -(activeTax + savingsTax), "critical");
             }
-            document.getElementById('timer-text').innerText = marketTimer + "s";
-            document.getElementById('timer-bar').style.width = (marketTimer / 30 * 100) + "%";
-            document.getElementById('timer-bar').style.backgroundColor = marketTimer < 5 ? '#ef4444' : '#10b981';
+            lastTaxTime = now;
         }
+        if (savedScore > 0) savedScore += (savedScore * (modifiers.savingsApy / 2000));
+        if (iulScore > 0) iulScore += (iulScore * (modifiers.iulApy / 2000));
+        
+        // GRADUAL SPEED: Incremental every 60s
+        const age = Math.floor((now - gameStartTime) / 60000); 
+        const effectiveSpeed = Math.max(modifiers.speed - (age * 2), 60);
+        if (effectiveSpeed !== gameSpeed) gameSpeed = effectiveSpeed;
+
+        const inflationTrigger = score < 0 ? (modifiers.inflationRate * 1.5) : modifiers.inflationRate;
+        if (Math.random() < inflationTrigger && snake.length > 3) snake.pop();
     }
 
     function mainLoop() {
         if (isPaused) return;
         if (didGameEnd()) { triggerGameOver(); return; }
-        updateTimer();
-        setTimeout(() => {
-            clearCanvas();
-            drawFood();
-            advanceSnake();
-            drawSnake();
-            mainLoop();
-        }, gameSpeed);
-    }
-
-    function clearCanvas() {
-        ctx.fillStyle = "black";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.strokeStyle = "#111";
-        for(let i=0; i<canvas.width; i+=gridSize) {
-            ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i, canvas.height); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width, i); ctx.stroke();
+        const now = Date.now();
+        if (now - lastTimerUpdate >= 1000) {
+            marketTimer--; lastTimerUpdate = now;
+            if (marketTimer <= 0) { 
+                marketTimer = 30; monthsPassed++; if (monthsPassed >= 12) { monthsPassed = 0; yearsPassed++; checkSalaryHike(); }
+                score += modifiers.monthlySalary;
+                if (dividendAssets > 0) score += Math.floor(dividendAssets * 0.05);
+                spawnMarket(); generateMarketNews(); 
+                updateChart(); 
+            }
+            const timerText = document.getElementById('timer-text');
+            if (timerText) timerText.innerText = "Cycle: " + marketTimer + "s";
+            const tenureText = document.getElementById('tenureText');
+            if (tenureText) tenureText.innerText = "Tenure: " + yearsPassed + "y " + monthsPassed + "m";
+            const timerBar = document.getElementById('timer-bar');
+            if (timerBar) {
+                timerBar.style.width = (marketTimer / 30 * 100) + "%";
+                timerBar.style.backgroundColor = marketTimer < 5 ? '#ef4444' : '#10b981';
+            }
         }
+        applyEconomicFactors(); updateUI();
+        setTimeout(() => { clearCanvas(); drawFood(); advanceSnake(); drawSnake(); mainLoop(); }, gameSpeed);
     }
 
-    function drawSnake() {
-        snake.forEach((part, index) => {
-            ctx.fillStyle = index === 0 ? "#10b981" : "#064e3b";
-            ctx.beginPath();
-            ctx.roundRect(part.x * gridSize + 1, part.y * gridSize + 1, gridSize - 2, gridSize - 2, 6);
-            ctx.fill();
-        });
+    function updateUI() {
+        const scoreVal = document.getElementById('score-val');
+        if (scoreVal) {
+            scoreVal.innerText = (score < 0 ? "-$" : "$") + Math.abs(Math.floor(score)).toLocaleString();
+            scoreVal.className = `font-black ${score < 0 ? 'text-red-500' : 'text-emerald-400'}`;
+        }
+        const savedVal = document.getElementById('saved-val');
+        if (savedVal) savedVal.innerText = "$" + Math.floor(savedScore).toLocaleString();
+        const iulVal = document.getElementById('iul-val');
+        if (iulVal) iulVal.innerText = "$" + Math.floor(iulScore).toLocaleString();
+        const levelDisplay = document.getElementById('levelDisplay');
+        if (levelDisplay) levelDisplay.innerText = "Level: " + getLevel(score + savedScore + iulScore);
+        
+        document.getElementById('cashOutBtn').disabled = (score + savedScore + iulScore) < 0;
+        document.getElementById('manualBankBtn').disabled = score <= 0;
+        document.getElementById('manualIULBtn').disabled = score <= 0;
     }
 
-    function drawFood() {
-        ctx.shadowBlur = 10;
-        foodItems.forEach(item => {
-            ctx.font = `${gridSize - 4}px Arial`;
-            ctx.textAlign = "center";
-            ctx.textBaseline = "middle";
-            ctx.shadowColor = item.type === 'negative' ? '#ef4444' : (item.type === 'neutral' ? '#3b82f6' : '#10b981');
-            ctx.fillText(item.icon, item.x * gridSize + gridSize/2, item.y * gridSize + gridSize/2);
-        });
-        ctx.shadowBlur = 0;
+    function getLevel(wealth) {
+        if (wealth < 1000) return "Entry";
+        if (wealth < 10000) return "Starter ($1k+)";
+        if (wealth < 100000) return "Builder ($10k+)";
+        if (wealth < 1000000) return "Professional ($100k+)";
+        if (wealth < 10000000) return "Millionaire ($1M+)";
+        return "Cent-Millionaire ($100M+)";
     }
+
+    function clearCanvas() { ctx.fillStyle = "black"; ctx.fillRect(0, 0, canvas.width, canvas.height); ctx.strokeStyle = "#111"; for(let i=0; i<canvas.width; i+=gridSize) { ctx.beginPath(); ctx.moveTo(i,0); ctx.lineTo(i, canvas.height); ctx.stroke(); ctx.beginPath(); ctx.moveTo(0,i); ctx.lineTo(canvas.width, i); ctx.stroke(); } }
+    function drawSnake() { snake.forEach((part, index) => { ctx.fillStyle = index === 0 ? "#10b981" : "#064e3b"; ctx.beginPath(); ctx.roundRect(part.x * gridSize + 1, part.y * gridSize + 1, gridSize - 2, gridSize - 2, 6); ctx.fill(); }); }
+    function drawFood() { ctx.shadowBlur = 10; foodItems.forEach(item => { ctx.font = `${gridSize - 4}px Arial`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.shadowColor = item.type === 'negative' ? '#ef4444' : (item.type === 'neutral' ? '#3b82f6' : (item.type === 'critical' ? '#ff0000' : (item.type === 'bank' ? '#3b82f6' : '#10b981'))); ctx.fillText(item.icon, item.x * gridSize + gridSize/2, item.y * gridSize + gridSize/2); }); ctx.shadowBlur = 0; }
 
     function advanceSnake() {
-        let headX = snake[0].x + dx;
-        let headY = snake[0].y + dy;
+        let headX = snake[0].x + dx; let headY = snake[0].y + dy;
         if (headX < 0) headX = tileCount - 1; else if (headX >= tileCount) headX = 0;
         if (headY < 0) headY = tileCount - 1; else if (headY >= tileCount) headY = 0;
-        const head = { x: headX, y: headY };
-        snake.unshift(head);
-
+        const head = { x: headX, y: headY }; snake.unshift(head);
         let ateIndex = foodItems.findIndex(f => head.x === f.x && head.y === f.y);
         if (ateIndex !== -1) {
-            const item = foodItems[ateIndex];
-            let valueToApply = item.value, type = item.type, label = item.label;
-            if (item.type === 'neutral') {
-                const isGain = Math.random() > 0.45; 
-                valueToApply = isGain ? 400 : -250;
-                type = isGain ? 'positive' : 'negative';
-                label = isGain ? "Market Rally" : "Market Crash";
+            const item = foodItems[ateIndex]; let valueToApply = item.value, type = item.type, label = item.label;
+            if (type === 'bank') performBankTransfer();
+            else if (type === 'iul') performIULTransfer();
+            else {
+                if (item.type === 'positive' && item.icon === '💰') {
+                    dividendAssets += 2000; addNotification("Dividend Base Up", 2000, "positive");
+                } else {
+                    if (item.type === 'neutral') {
+                        const threshold = 0.5 - (modifiers.aggressiveness * 0.05);
+                        const isGain = Math.random() > threshold;
+                        valueToApply = isGain ? (400 * modifiers.aggressiveness) : (-300 * modifiers.aggressiveness);
+                        type = isGain ? 'positive' : 'negative';
+                        label = isGain ? "Alpha Gain" : "Volatility";
+                    }
+                    let impact = valueToApply * modifiers.growth;
+                    if (type === 'critical') impact = item.value * modifiers.emergencyResilience;
+                    score += impact; addNotification(label, impact, type);
+                }
             }
-            const impact = valueToApply * modifiers.growth;
-            score += impact; if (score < 0) score = 0; 
-            addNotification(label, impact, type);
-            document.getElementById('score').innerText = "$" + Math.floor(score).toLocaleString();
-            if (type === 'negative') { if (snake.length > 2) snake.pop(); snake.pop(); }
-            foodItems.splice(ateIndex, 1);
-            spawnOneFood();
-        } else {
-            snake.pop();
-        }
-        if (modifiers.burn > 0 && Math.random() < modifiers.burn && snake.length > 3) snake.pop();
+            foodItems.splice(ateIndex, 1); spawnOneFood();
+        } else { snake.pop(); }
     }
 
-    function didGameEnd() {
-        if (snake.length === 0) return true;
-        for (let i = 4; i < snake.length; i++) if (snake[i].x === snake[0].x && snake[i].y === snake[0].y) return true;
-        return false;
-    }
+    function manualBankTransfer() { if (!isGameActive() || isPaused) return; performBankTransfer(); updateUI(); }
+    function manualIULTransfer() { if (!isGameActive() || isPaused) return; performIULTransfer(); updateUI(); }
+    function performBankTransfer() { if (score > 0) { savedScore += score; addNotification("Banked!", score, "bank"); score = 0; snake = snake.slice(0, 3); } else addNotification("No Portfolio", 0, "neutral"); }
+    function performIULTransfer() { if (score > 0) { iulScore += score; addNotification("Shielded!", score, "iul"); score = 0; snake = snake.slice(0, 3); } else addNotification("No Portfolio", 0, "neutral"); }
 
-    function getBadgeDetails(s) {
-        if (s >= 50000) return { name: "Financial Freedom Master", icon: "💎" };
-        if (s >= 20000) return { name: "Wealth Architect", icon: "🏗️" };
-        if (s >= 5000) return { name: "Prosperity Builder", icon: "📈" };
-        return { name: "Emergency Fund Hero", icon: "🛡️" };
-    }
+    function didGameEnd() { if (snake.length === 0) return true; for (let i = 4; i < snake.length; i++) if (snake[i].x === snake[0].x && snake[i].y === snake[0].y) return true; return false; }
 
     function triggerGameOver() {
-        isPaused = true;
-        const badge = getBadgeDetails(score);
-        currentBadge = badge;
-        document.getElementById('game-over').classList.remove('hidden');
-        document.getElementById('final-stats').innerText = `Managed by ${userName}: $${Math.floor(score).toLocaleString()}`;
+        isPaused = true; const totalWealth = score + savedScore + iulScore;
+        const badge = (totalWealth < 0) ? { name: "Debt Burdened", icon: "💸" } : (totalWealth >= 50000 ? { name: "FIRE Legend", icon: "🔥" } : (totalWealth >= 20000 ? { name: "Prosperity Architect", icon: "🏗️" } : (totalWealth >= 5000 ? { name: "Wealth Builder", icon: "📈" } : { name: "Disciplined Saver", icon: "🛡️" })));
+        currentBadge = badge; document.getElementById('game-over').classList.remove('hidden');
+        document.getElementById('gameOverTitle').innerText = totalWealth < 0 ? "Insolvency" : "Final Results";
+        document.getElementById('final-stats').innerText = `${userName}'s Net Worth: ${totalWealth < 0 ? '-' : ''}$${Math.abs(Math.floor(totalWealth)).toLocaleString()} over ${yearsPassed}y.`;
         document.getElementById('badge-display').innerText = badge.icon;
         document.getElementById('badge-name').innerText = badge.name;
-        document.getElementById('badge-owner-text').innerText = `${userName}'s Status:`;
-        
-        generateBadgeImage();
-        generateSocialPost();
+        document.getElementById('badge-owner-text').innerText = `${userName}'s Tenure Milestone:`;
+        generateBadgeImage(totalWealth); generatePerformanceReview(totalWealth); generateSocialPost(totalWealth);
     }
 
-    function endGameManually() {
-        if (!isPaused) triggerGameOver();
+    function endGameManually() { if (!isPaused) triggerGameOver(); }
+
+    async function generatePerformanceReview(wealth) {
+        const prompt = `Review performance: Name: ${userName}, Wealth: $${wealth}, Tenure: ${yearsPassed}y. Strategy: ${modifiers.label}. Elite hedge fund style. Max 40 words.`;
+        try { const review = await callGemini(prompt, "Elite wealth auditor."); document.getElementById('ai-review-text').innerText = review; } catch (e) {}
     }
 
-    async function generateBadgeImage() {
-        const artLoader = document.getElementById('art-loading');
-        const imgContainer = document.getElementById('badge-img-container');
-        
-        const prompt = `A professional 3D trophy certificate icon for ${userName} celebrating their achievement of "${currentBadge.name}" in a wealth-building application. Aesthetic: emerald green, liquid gold accents, clean glass textures, premium financial branding, 8k resolution, centered.`;
-        
+    async function generateBadgeImage(totalWealth) {
+        const artLoader = document.getElementById('art-loading'); const imgContainer = document.getElementById('badge-img-container');
+        const prompt = totalWealth < 0 ? `Broken vault, red neon lighting.` : `3D trophy certificate for ${userName} as "${currentBadge.name}". Emerald lighting.`;
         try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ instances: { prompt: prompt }, parameters: { sampleCount: 1 } })
-            });
-            const result = await response.json();
-            const imageUrl = `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
-            
-            document.getElementById('badge-preview').src = imageUrl;
-            document.getElementById('download-link').href = imageUrl;
-            artLoader.classList.add('hidden');
-            imgContainer.classList.remove('hidden');
-        } catch (error) {
-            artLoader.innerHTML = '<p class="text-red-400 text-[10px]">Art generation offline. Using badge icon.</p>';
-            imgContainer.classList.remove('hidden');
-        }
+            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ instances: { prompt: prompt }, parameters: { sampleCount: 1 } }) });
+            const result = await response.json(); const imageUrl = `data:image/png;base64,${result.predictions[0].bytesBase64Encoded}`;
+            document.getElementById('badge-preview').src = imageUrl; document.getElementById('download-link').href = imageUrl;
+            artLoader.classList.add('hidden'); imgContainer.classList.remove('hidden');
+        } catch (e) { artLoader.innerHTML = '<p class="text-xs">Offline.</p>'; imgContainer.classList.remove('hidden'); }
     }
 
-    async function generateSocialPost() {
-        const postLoading = document.getElementById('post-loading');
-        const postActions = document.getElementById('post-actions');
-        const copyBtn = document.getElementById('copy-text-btn');
-        
-        const prompt = `Write a viral, high-energy LinkedIn post for ${userName} who reached the rank of "${currentBadge.name}" in the "Wealth Snake" game by managing a portfolio of $${Math.floor(score).toLocaleString()}. The post should be about financial discipline, growth mindset, and beating the odds. Use professional but fun language, emojis, and hashtags like #WealthSnake #FinLit. Under 200 words.`;
-        
-        try {
-            const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
-            });
-            const result = await response.json();
-            engagingText = result.candidates?.[0]?.content?.parts?.[0]?.text || "";
-            
-            postLoading.classList.add('hidden');
-            postActions.classList.remove('hidden');
-            copyBtn.classList.remove('hidden');
-        } catch (error) {
-            engagingText = `I just reached the rank of ${currentBadge.name} in Wealth Snake! Managed a portfolio of $${Math.floor(score).toLocaleString()}. Can you beat my investment strategy? #WealthSnake #Finance`;
-            postLoading.classList.add('hidden');
-            postActions.classList.remove('hidden');
-            copyBtn.classList.remove('hidden');
-        }
+    async function generateSocialPost(totalWealth) {
+        const prompt = `LinkedIn post for ${userName} rank "${currentBadge.name}" in Wealth Snake with $${Math.floor(totalWealth)}. Tenure: ${yearsPassed}y.`;
+        try { engagingText = await callGemini(prompt, "Viral finance story writer."); document.getElementById('post-loading').classList.add('hidden'); document.getElementById('post-actions').classList.remove('hidden'); document.getElementById('copy-text-btn').classList.remove('hidden'); } catch (e) {}
     }
 
-    function shareSocial(platform) {
-        if (!engagingText) return;
-        const text = engagingText;
-        if (platform === 'linkedin') {
-            window.open(`https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(text)}`, '_blank');
-        } else if (platform === 'whatsapp') {
-            window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank');
-        }
-    }
-
-    function copyPostText() {
-        if (!engagingText) return;
-        const dummy = document.createElement("textarea");
-        document.body.appendChild(dummy);
-        dummy.value = engagingText;
-        dummy.select();
-        document.execCommand("copy");
-        document.body.removeChild(dummy);
-        
-        const btn = document.getElementById('copy-text-btn');
-        const originalText = btn.innerText;
-        btn.innerText = "COPIED TO CLIPBOARD!";
-        setTimeout(() => btn.innerText = originalText, 2000);
-    }
+    function shareSocial(p) { if (p === 'linkedin') window.open(`https://www.linkedin.com/feed/?shareActive=true&text=${encodeURIComponent(engagingText)}`, '_blank'); else window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(engagingText)}`, '_blank'); }
+    function copyPostText() { const dummy = document.createElement("textarea"); document.body.appendChild(dummy); dummy.value = engagingText; dummy.select(); document.execCommand("copy"); document.body.removeChild(dummy); document.getElementById('copy-text-btn').innerText = "COPIED!"; setTimeout(() => document.getElementById('copy-text-btn').innerText = "Copy Post Text", 2000); }
 
     function changeDir(dir) {
-        if (isPaused) return;
-        if (dir === 'left' && dx !== 1) { dx = -1; dy = 0; }
-        if (dir === 'up' && dy !== 1) { dx = 0; dy = -1; }
-        if (dir === 'right' && dx !== -1) { dx = 1; dy = 0; }
-        if (dir === 'down' && dy !== -1) { dx = 0; dy = 1; }
+        if (isPaused) return; const goingUp = dy === -1, goingDown = dy === 1, goingRight = dx === 1, goingLeft = dx === -1;
+        if (dir === 'left' && !goingRight) { dx = -1; dy = 0; } if (dir === 'up' && !goingDown) { dx = 0; dy = -1; } if (dir === 'right' && !goingLeft) { dx = 1; dy = 0; } if (dir === 'down' && !goingUp) { dx = 0; dy = 1; }
     }
 
     window.addEventListener('keydown', e => {
-        const keyMap = { 37: 'left', 38: 'up', 39: 'right', 40: 'down', 65: 'left', 87: 'up', 68: 'right', 83: 'down' };
-        if (keyMap[e.keyCode]) changeDir(keyMap[e.keyCode]);
+        const keyMap = { 37: 'left', 38: 'up', 39: 'right', 40: 'down', 65: 'left', 87: 'up', 68: 'right', 83: 'down', 80: 'pause', 27: 'escape' };
+        if (keyMap[e.keyCode]) { if (keyMap[e.keyCode] === 'pause') togglePause(); else if (keyMap[e.keyCode] === 'escape') { if (isGameActive()) endGameManually(); } else changeDir(keyMap[e.keyCode]); }
     });
 
     init();
