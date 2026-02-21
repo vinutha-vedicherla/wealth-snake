@@ -16,16 +16,19 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             height: 100vh;
-            overflow: hidden;
+            overflow-x: hidden;
+            padding-top: 20px;
             touch-action: none;
         }
         #game-container {
             display: flex;
             gap: 20px;
             align-items: flex-start;
-            max-width: 98vw;
+            width: 98vw;
+            max-width: 1400px;
+            justify-content: center;
         }
         canvas#gameCanvas {
             border: 2px solid #222;
@@ -33,15 +36,16 @@
             box-shadow: 0 0 40px rgba(16, 185, 129, 0.1);
         }
         .side-panel {
-            width: 240px;
+            width: 260px;
             background: #111;
             border: 1px solid #333;
             border-radius: 16px;
             padding: 15px;
-            height: 520px;
+            height: 700px; /* Matched to larger canvas height */
             overflow-y: auto;
             display: flex;
             flex-direction: column;
+            transition: all 0.3s ease;
         }
         .notification-feed {
             position: fixed;
@@ -50,18 +54,19 @@
             width: 100%;
             display: flex;
             justify-content: space-between;
-            padding: 0 20px;
+            padding: 0 40px;
             z-index: 50;
         }
         .notif {
-            padding: 10px 15px;
-            border-radius: 8px;
+            padding: 12px 18px;
+            border-radius: 10px;
             font-weight: bold;
-            font-size: 0.9rem;
-            animation: slideIn 0.5s ease-out forwards, fadeOut 2s 1s ease-in forwards;
+            font-size: 0.95rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            animation: slideIn 0.5s ease-out forwards, fadeOut 2s 1.5s ease-in forwards;
             opacity: 0;
         }
-        @keyframes slideIn { from { transform: translateX(-20px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideIn { from { transform: translateX(-30px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
         @keyframes fadeOut { from { opacity: 1; } to { opacity: 0; } }
         .overlay {
             position: fixed;
@@ -93,9 +98,17 @@
         .btn:disabled { opacity: 0.3; cursor: not-allowed; }
         .hidden { display: none !important; }
         
-        .timer-bar { height: 4px; background: #10b981; width: 100%; transition: width 1s linear; }
+        .timer-bar { height: 6px; background: #10b981; width: 100%; transition: width 1s linear; }
         .progress-step { height: 4px; flex: 1; background: #333; border-radius: 2px; transition: background 0.3s; }
         .progress-step.active { background: #10b981; }
+
+        #badge-preview {
+            max-width: 240px;
+            border-radius: 12px;
+            margin: 10px auto;
+            border: 2px solid #10b981;
+            box-shadow: 0 0 30px rgba(16, 185, 129, 0.3);
+        }
 
         .loading-spinner {
             border: 3px solid rgba(255,255,255,0.1);
@@ -108,46 +121,47 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
         input {
-            background: #222; border: 1px solid #444; padding: 10px; border-radius: 10px;
-            color: white; width: 100%; margin-bottom: 10px; text-align: center; font-weight: bold;
+            background: #222; border: 1px solid #444; padding: 12px; border-radius: 12px;
+            color: white; width: 100%; margin-bottom: 12px; text-align: center; font-weight: bold;
         }
         input:focus { border-color: #10b981; outline: none; }
 
         #pause-indicator {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: rgba(16, 185, 129, 0.9); color: black; padding: 20px 40px; border-radius: 20px;
-            font-weight: 900; text-transform: uppercase; font-size: 2rem; pointer-events: none; z-index: 60; display: none;
+            background: rgba(16, 185, 129, 0.95); color: black; padding: 30px 60px; border-radius: 24px;
+            font-weight: 900; text-transform: uppercase; font-size: 2.5rem; pointer-events: none; z-index: 60; display: none;
+            box-shadow: 0 0 50px rgba(16, 185, 129, 0.4);
         }
 
         .ai-tip-box {
-            background: rgba(16, 185, 129, 0.05);
+            background: rgba(16, 185, 129, 0.08);
             border: 1px solid rgba(16, 185, 129, 0.2);
-            padding: 10px;
-            border-radius: 10px;
+            padding: 12px;
+            border-radius: 12px;
             margin-top: 10px;
-            font-size: 0.75rem;
-            line-height: 1.4;
-            color: #ccc;
+            font-size: 0.8rem;
+            line-height: 1.5;
+            color: #eee;
         }
 
         .manual-grid-item {
             background: #1a1a1a;
-            padding: 12px;
-            border-radius: 12px;
+            padding: 14px;
+            border-radius: 14px;
             border: 1px solid #333;
         }
 
         #chart-header {
-            width: 100%;
-            max-width: 1100px;
-            height: 150px;
-            margin-bottom: 10px;
+            width: 98vw;
+            max-width: 1400px;
+            height: 160px;
+            margin-bottom: 15px;
             background: #111;
             border: 1px solid #222;
-            border-radius: 16px;
-            padding: 12px;
+            border-radius: 20px;
+            padding: 15px;
             display: flex;
-            gap: 20px;
+            gap: 25px;
             align-items: center;
         }
         .chart-container {
@@ -156,16 +170,16 @@
             position: relative;
         }
         .stats-summary {
-            width: 220px;
+            width: 250px;
             display: flex;
             flex-direction: column;
-            gap: 2px;
+            gap: 4px;
         }
         .stat-item {
             display: flex;
             justify-content: space-between;
-            font-size: 11px;
-            padding: 4px 0;
+            font-size: 12px;
+            padding: 5px 0;
             border-bottom: 1px solid #222;
         }
     </style>
@@ -174,26 +188,26 @@
 
 <div id="chart-header">
     <div class="stats-summary">
-        <div class="text-[9px] uppercase font-bold text-gray-500 tracking-widest mb-1">Portfolio Assets</div>
+        <div class="text-[10px] uppercase font-bold text-gray-500 tracking-widest mb-1">Portfolio Assets</div>
         <div class="stat-item">
             <span class="text-emerald-400 font-bold uppercase tracking-tighter">Active Now</span> 
-            <span id="score-val" class="font-black">$0</span>
+            <span id="score-val" class="font-black text-sm">$0</span>
         </div>
         <div class="stat-item">
             <span class="text-blue-400 font-bold uppercase tracking-tighter">Savings</span> 
-            <span id="saved-val" class="font-black">$0</span>
+            <span id="saved-val" class="font-black text-sm">$0</span>
         </div>
         <div class="stat-item">
             <span class="text-yellow-500 font-bold uppercase tracking-tighter">IUL Shield</span> 
-            <span id="iul-val" class="font-black">$0</span>
+            <span id="iul-val" class="font-black text-sm">$0</span>
         </div>
         <div class="stat-item">
-            <span class="text-gray-400 font-bold uppercase tracking-tighter">Income</span> 
-            <span id="salary-val" class="font-black">$500</span>
+            <span class="text-gray-400 font-bold uppercase tracking-tighter">Net Monthly</span> 
+            <span id="salary-val" class="font-black text-sm">$500</span>
         </div>
         <div class="flex gap-2 mt-2">
-            <button id="manualBankBtn" onclick="manualBankTransfer()" class="flex-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[8px] font-bold py-1 rounded border border-blue-500/20 uppercase transition-colors pointer-events-auto disabled:opacity-30">Bank Now</button>
-            <button id="manualIULBtn" onclick="manualIULTransfer()" class="flex-1 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 text-[8px] font-bold py-1 rounded border border-yellow-500/20 uppercase transition-colors pointer-events-auto disabled:opacity-30">Shield Now</button>
+            <button id="manualBankBtn" onclick="manualBankTransfer()" class="flex-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[9px] font-bold py-1.5 rounded border border-blue-500/20 uppercase transition-colors pointer-events-auto disabled:opacity-30">Bank Now</button>
+            <button id="manualIULBtn" onclick="manualIULTransfer()" class="flex-1 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-400 text-[9px] font-bold py-1.5 rounded border border-yellow-500/20 uppercase transition-colors pointer-events-auto disabled:opacity-30">Shield Now</button>
         </div>
     </div>
 
@@ -201,23 +215,23 @@
         <canvas id="growthChart"></canvas>
     </div>
 
-    <div class="w-[220px] flex flex-col justify-between h-full">
+    <div class="w-[240px] flex flex-col justify-between h-full">
         <div class="text-right">
-            <div id="playerNameDisplay" class="text-[10px] font-black text-emerald-500 uppercase truncate">Investor: --</div>
-            <div id="strategyDisplay" class="text-[8px] text-gray-500 uppercase mb-1">Strategy: --</div>
-            <div id="tenureText" class="text-xs font-black text-white">Tenure: 0y 0m</div>
-            <div id="levelDisplay" class="text-[9px] text-emerald-500 font-bold uppercase border border-emerald-500/20 inline-block px-2 rounded mt-1">Level: Entry</div>
+            <div id="playerNameDisplay" class="text-xs font-black text-emerald-500 uppercase truncate">Investor: --</div>
+            <div id="strategyDisplay" class="text-[9px] text-gray-500 uppercase mb-1">Strategy: --</div>
+            <div id="tenureText" class="text-sm font-black text-white">Tenure: 0y 0m</div>
+            <div id="levelDisplay" class="text-[10px] text-emerald-500 font-bold uppercase border border-emerald-500/20 inline-block px-3 py-0.5 rounded mt-1">Level: Entry</div>
         </div>
-        <div class="text-center mb-1">
-            <a href="javascript:void(0)" onclick="openManual()" class="text-[10px] font-bold text-emerald-500 hover:underline uppercase tracking-widest">📖 Strategy Manual</a>
+        <div class="text-center">
+            <a href="javascript:void(0)" onclick="openManual()" class="text-[11px] font-bold text-emerald-500 hover:underline uppercase tracking-widest">📖 Strategy Manual</a>
         </div>
-        <div class="bg-gray-800 h-1.5 rounded-full overflow-hidden mb-2">
+        <div class="bg-gray-800 h-2 rounded-full overflow-hidden mb-2">
             <div id="timer-bar" class="timer-bar"></div>
         </div>
         <div class="flex gap-1">
-            <button id="pauseBtn" onclick="togglePause()" class="flex-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[9px] font-bold py-1.5 rounded border border-blue-500/20 uppercase transition-colors pointer-events-auto">Pause</button>
-            <button id="resetBtn" onclick="location.reload()" class="flex-1 bg-gray-500/10 hover:bg-gray-500/20 text-gray-400 text-[9px] font-bold py-1.5 rounded border border-gray-500/20 uppercase transition-colors pointer-events-auto">Reset</button>
-            <button id="cashOutBtn" onclick="endGameManually()" class="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[9px] font-bold py-1.5 rounded border border-red-500/20 uppercase transition-colors pointer-events-auto">Retire</button>
+            <button id="pauseBtn" onclick="togglePause()" class="flex-1 bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 text-[10px] font-bold py-2 rounded border border-blue-500/20 uppercase transition-colors pointer-events-auto">Pause</button>
+            <button id="resetBtn" onclick="location.reload()" class="flex-1 bg-gray-500/10 hover:bg-gray-500/20 text-gray-400 text-[10px] font-bold py-2 rounded border border-gray-500/20 uppercase transition-colors pointer-events-auto">Reset</button>
+            <button id="cashOutBtn" onclick="endGameManually()" class="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-500 text-[10px] font-bold py-2 rounded border border-red-500/20 uppercase transition-colors pointer-events-auto">Retire</button>
         </div>
     </div>
 </div>
@@ -227,11 +241,11 @@
 
     <div class="side-panel hidden md:flex">
         <h3 class="text-xs font-bold text-gray-500 uppercase mb-4 tracking-tighter text-center border-b border-gray-800 pb-2">Advisor Hub</h3>
-        <div id="guide-list" class="space-y-3 text-[10px]"></div>
+        <div id="guide-list" class="space-y-4 text-[10px]"></div>
         
-        <div class="mt-auto space-y-2">
+        <div class="mt-auto space-y-3">
             <div id="ai-advisor-response" class="ai-tip-box hidden"></div>
-            <button id="advisorBtn" onclick="getAIAdvice()" class="btn !bg-emerald-600/10 !text-emerald-400 border-emerald-600/30">
+            <button id="advisorBtn" onclick="getAIAdvice()" class="btn !bg-emerald-600/10 !text-emerald-400 border-emerald-600/30 py-3">
                 <span>✨ AI Strategy Tip</span>
             </button>
             <button onclick="openManual()" class="w-full text-[10px] text-gray-500 font-black uppercase tracking-widest hover:underline pt-2">Strategy Manual</button>
@@ -242,7 +256,7 @@
 
     <div class="side-panel hidden md:flex">
         <h3 class="text-xs font-bold text-gray-500 uppercase mb-4 tracking-tighter text-center border-b border-gray-800 pb-2">Financial Log</h3>
-        <div id="event-history" class="space-y-2 text-[9px]">
+        <div id="event-history" class="space-y-2 text-[10px]">
             <p class="text-gray-600 italic">Market pulse active...</p>
         </div>
     </div>
@@ -260,7 +274,7 @@
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
             <div class="manual-grid-item">
                 <p class="font-black text-white mb-1">💼 SALARY & INCOME</p>
-                <p class="text-gray-400 text-xs">Monthly deposits (every 30s cycle). Raises occur annually based on performance and tenure.</p>
+                <p class="text-gray-400 text-xs">Monthly deposits (first year), then Quarterly. Raises occur annually based on performance and tenure.</p>
             </div>
             <div class="manual-grid-item">
                 <p class="font-black text-yellow-400 mb-1">🛡️ IUL SHIELDING</p>
@@ -268,11 +282,15 @@
             </div>
             <div class="manual-grid-item">
                 <p class="font-black text-emerald-400 mb-1">💰 AUTO-DIVIDENDS</p>
-                <p class="text-gray-400 text-xs">Acquiring 💰 increases your permanent dividend asset base. Payouts are automated every month.</p>
+                <p class="text-gray-400 text-xs">Acquiring 💰 increases your permanent dividend asset base. Payouts are automated every market cycle.</p>
             </div>
             <div class="manual-grid-item">
                 <p class="font-black text-blue-400 mb-1">🏦 SECURE SAVINGS</p>
                 <p class="text-gray-400 text-xs">Bank active cash. Shrinks your snake to reset your risk level. Essential to avoid self-collision.</p>
+            </div>
+            <div class="manual-grid-item col-span-1 md:col-span-2">
+                <p class="font-black text-emerald-500 mb-1">⏱️ TIME ACCELERATION</p>
+                <p class="text-gray-400 text-xs">After Year 1, cycles jump to Quarterly (3 months). Paychecks, dividends, and returns scale by 3x automatically!</p>
             </div>
         </div>
         <button onclick="closeManual()" class="btn !bg-emerald-600 !text-black mt-8">Back to Portfolio</button>
@@ -281,62 +299,62 @@
 
 <!-- Onboarding Quiz -->
 <div id="quiz-overlay" class="overlay">
-    <div class="bg-[#111] p-8 rounded-3xl max-w-sm w-full border border-[#333] text-center shadow-2xl">
+    <div class="bg-[#111] p-10 rounded-3xl max-w-md w-full border border-[#333] text-center shadow-2xl">
         <div id="onboarding-step-1">
-            <h2 class="text-2xl font-black mb-2 text-emerald-400 uppercase tracking-tighter">Private Wealth Portal</h2>
-            <p class="text-gray-400 mb-6 text-sm">Enter your name to open your private wealth account:</p>
+            <h2 class="text-3xl font-black mb-2 text-emerald-400 uppercase tracking-tighter">Private Wealth Portal</h2>
+            <p class="text-gray-400 mb-8 text-sm">Enter your name to open your private wealth account:</p>
             <input type="text" id="playerName" placeholder="Investor Name" maxlength="20">
-            <button onclick="startSurvey()" class="btn !bg-emerald-600 !text-black">Start Discovery Assessment</button>
-            <button onclick="skipSurvey()" class="mt-4 text-[10px] text-gray-500 uppercase font-bold hover:text-white transition-colors">Skip to Default Profile</button>
+            <button onclick="startSurvey()" class="btn !bg-emerald-600 !text-black py-4 text-lg">Start Assessment</button>
+            <button onclick="skipSurvey()" class="mt-6 text-[11px] text-gray-500 uppercase font-bold hover:text-white transition-colors">Skip to Default Profile</button>
         </div>
         <div id="survey-container" class="hidden">
-            <div class="flex gap-1 mb-6" id="progress-bar">
+            <div class="flex gap-1.5 mb-8" id="progress-bar">
                 <div class="progress-step"></div><div class="progress-step"></div><div class="progress-step"></div><div class="progress-step"></div><div class="progress-step"></div><div class="progress-step"></div>
             </div>
-            <h2 id="survey-q" class="text-lg font-bold mb-4 text-white"></h2>
-            <div id="survey-choices" class="space-y-2"></div>
+            <h2 id="survey-q" class="text-xl font-bold mb-6 text-white"></h2>
+            <div id="survey-choices" class="space-y-3"></div>
         </div>
     </div>
 </div>
 
 <!-- Results Overlay -->
 <div id="game-over" class="overlay hidden">
-    <div class="bg-[#111] p-8 rounded-3xl max-w-md w-full border border-[#333] text-center max-h-[90vh] overflow-y-auto shadow-2xl">
+    <div class="bg-[#111] p-10 rounded-3xl max-w-xl w-full border border-[#333] text-center max-h-[90vh] overflow-y-auto shadow-2xl">
         <div id="game-over-header">
-            <h1 id="gameOverTitle" class="text-3xl font-black mb-2 uppercase">Portfolio Results</h1>
-            <p id="final-stats" class="text-gray-400 mb-2 text-sm italic"></p>
+            <h1 id="gameOverTitle" class="text-4xl font-black text-emerald-400 mb-4 uppercase">Portfolio Results</h1>
+            <p id="final-stats" class="text-gray-300 mb-4 text-sm italic"></p>
         </div>
         
-        <div id="ai-review-box" class="bg-emerald-500/5 p-4 rounded-xl border border-emerald-500/10 mb-4 text-[11px] italic text-emerald-200 text-left">
-            <p class="text-[9px] font-bold uppercase tracking-widest text-emerald-500 mb-1">✨ AI Performance Audit</p>
-            <div id="ai-review-text">Generating appraisal...</div>
+        <div id="ai-review-box" class="bg-emerald-500/5 p-6 rounded-2xl border border-emerald-500/10 mb-6 text-xs italic text-emerald-100 text-left">
+            <p class="text-[10px] font-bold uppercase tracking-widest text-emerald-500 mb-2">✨ AI Performance Audit</p>
+            <div id="ai-review-text" class="leading-relaxed">Generating appraisal...</div>
         </div>
 
-        <div id="badge-section" class="bg-black/40 p-6 rounded-2xl border border-white/5 mb-6 relative min-h-[300px] flex flex-col justify-center">
+        <div id="badge-section" class="bg-black/40 p-8 rounded-3xl border border-white/5 mb-8 relative min-h-[340px] flex flex-col justify-center">
             <div id="art-loading" class="flex flex-col items-center gap-4">
                 <div class="loading-spinner"></div>
-                <p class="text-[10px] text-gray-500 uppercase tracking-widest">Minting Achievement Artwork...</p>
+                <p class="text-[11px] text-gray-500 uppercase tracking-widest">Minting Achievement Artwork...</p>
             </div>
             <div id="badge-img-container" class="hidden">
-                <p id="badge-owner-text" class="text-[10px] text-emerald-500/80 uppercase tracking-widest font-black mb-1"></p>
-                <div id="badge-display" class="text-5xl mb-2"></div>
-                <h2 id="badge-name" class="text-2xl font-black text-white uppercase tracking-tighter mb-4"></h2>
+                <p id="badge-owner-text" class="text-[11px] text-emerald-500/80 uppercase tracking-widest font-black mb-1"></p>
+                <div id="badge-display" class="text-6xl mb-3"></div>
+                <h2 id="badge-name" class="text-3xl font-black text-white uppercase tracking-tighter mb-5"></h2>
                 <img id="badge-preview" src="" alt="Award Badge">
-                <a id="download-link" href="#" download="wealth-badge.png" class="text-[10px] text-emerald-500 font-bold hover:underline block mt-4 bg-emerald-500/10 py-2 rounded">Download Badge</a>
+                <a id="download-link" href="#" download="wealth-badge.png" class="text-[11px] text-emerald-500 font-bold hover:underline block mt-5 bg-emerald-500/10 py-3 rounded-lg">Download High-Res Badge</a>
             </div>
         </div>
 
-        <div class="mb-6">
-            <p class="text-[10px] text-gray-500 uppercase font-bold mb-3 tracking-widest">Share Achievement</p>
-            <div id="post-loading" class="text-[10px] text-gray-500 mb-2 italic">Gemini is drafting your story...</div>
-            <div id="post-actions" class="grid grid-cols-2 gap-3 hidden">
-                <button onclick="shareSocial('linkedin')" class="bg-[#0077b5] text-white py-3 rounded-xl text-xs font-bold hover:brightness-125 transition-all shadow-lg">LinkedIn</button>
-                <button onclick="shareSocial('whatsapp')" class="bg-[#25d366] text-white py-3 rounded-xl text-xs font-bold hover:brightness-125 transition-all shadow-lg">WhatsApp</button>
+        <div class="mb-8">
+            <p class="text-[11px] text-gray-500 uppercase font-bold mb-4 tracking-widest text-center">Share Achievement</p>
+            <div id="post-loading" class="text-xs text-gray-500 mb-2 italic">Gemini is drafting your story...</div>
+            <div id="post-actions" class="grid grid-cols-2 gap-4 hidden">
+                <button onclick="shareSocial('linkedin')" class="bg-[#0077b5] text-white py-4 rounded-xl text-xs font-bold hover:brightness-125 transition-all shadow-xl">LinkedIn</button>
+                <button onclick="shareSocial('whatsapp')" class="bg-[#25d366] text-white py-4 rounded-xl text-xs font-bold hover:brightness-125 transition-all shadow-xl">WhatsApp</button>
             </div>
-            <button id="copy-text-btn" onclick="copyPostText()" class="w-full mt-4 text-[10px] text-emerald-400 font-bold uppercase tracking-widest hover:text-emerald-300 hidden">Copy Post Text</button>
+            <button id="copy-text-btn" onclick="copyPostText()" class="w-full mt-5 text-[11px] text-emerald-400 font-bold uppercase tracking-widest hover:text-emerald-300 transition-colors hidden">Copy Viral Post Text</button>
         </div>
 
-        <button onclick="location.reload()" class="w-full bg-white text-black py-4 rounded-xl font-black uppercase tracking-widest hover:bg-emerald-400 transition-all">New Investment Cycle</button>
+        <button onclick="location.reload()" class="w-full bg-white text-black py-5 rounded-xl font-black uppercase tracking-widest hover:bg-emerald-400 transition-all text-lg">New Investment Cycle</button>
     </div>
 </div>
 
@@ -542,10 +560,8 @@
         const nameInput = document.getElementById('playerName');
         if (!nameInput) return;
         userName = nameInput.value.trim() || "Investor";
-        
         const nameDisplay = document.getElementById('playerNameDisplay');
         if (nameDisplay) nameDisplay.innerText = `Investor: ${userName}`;
-        
         document.getElementById('onboarding-step-1').classList.add('hidden');
         document.getElementById('survey-container').classList.remove('hidden');
         showNextQuestion();
@@ -555,10 +571,8 @@
         const nameInput = document.getElementById('playerName');
         if (!nameInput) return;
         userName = nameInput.value.trim() || "Investor";
-        
         const nameDisplay = document.getElementById('playerNameDisplay');
         if (nameDisplay) nameDisplay.innerText = `Investor: ${userName}`;
-        
         finalizeSetup();
     }
 
@@ -589,10 +603,8 @@
         document.getElementById('quiz-overlay').classList.add('hidden');
         const salaryVal = document.getElementById('salary-val');
         if (salaryVal) salaryVal.innerText = "$" + modifiers.monthlySalary.toLocaleString();
-        
         const strategyDisplay = document.getElementById('strategyDisplay');
         if (strategyDisplay) strategyDisplay.innerText = `Strategy: ${modifiers.label}`;
-        
         const nameDisplay = document.getElementById('playerNameDisplay');
         if (nameDisplay) nameDisplay.innerText = `Investor: ${userName}`;
 
@@ -605,7 +617,9 @@
     }
 
     function resize() {
-        const size = Math.min(window.innerWidth - 40, 500);
+        // SIGNIFICANTLY ENLARGED CANVAS
+        const maxWidth = 800;
+        const size = Math.min(window.innerWidth - 60, maxWidth);
         canvas.width = size; canvas.height = size;
         tileCount = Math.floor(canvas.width / gridSize);
     }
@@ -641,25 +655,28 @@
 
     function applyEconomicFactors() {
         const now = Date.now();
+        const timeMultiplier = (yearsPassed >= 1) ? 3 : 1;
+
         if (now - lastTaxTime >= 45000) {
             if (score > 0 || savedScore > 0) {
-                const activeTax = score > 0 ? score * modifiers.taxRate : 0;
-                const savingsTax = savedScore > 0 ? savedScore * (modifiers.taxRate * 0.5) : 0;
+                const taxBaseRate = modifiers.taxRate * timeMultiplier;
+                const activeTax = score > 0 ? score * taxBaseRate : 0;
+                const savingsTax = savedScore > 0 ? savedScore * (taxBaseRate * 0.5) : 0;
                 score -= activeTax;
                 savedScore -= savingsTax;
                 addNotification("Tax Audit", -(activeTax + savingsTax), "critical");
             }
             lastTaxTime = now;
         }
-        if (savedScore > 0) savedScore += (savedScore * (modifiers.savingsApy / 2000));
-        if (iulScore > 0) iulScore += (iulScore * (modifiers.iulApy / 2000));
+
+        if (savedScore > 0) savedScore += (savedScore * (modifiers.savingsApy / 2000) * timeMultiplier);
+        if (iulScore > 0) iulScore += (iulScore * (modifiers.iulApy / 2000) * timeMultiplier);
         
-        // GRADUAL SPEED: Incremental every 60s
         const age = Math.floor((now - gameStartTime) / 60000); 
         const effectiveSpeed = Math.max(modifiers.speed - (age * 2), 60);
         if (effectiveSpeed !== gameSpeed) gameSpeed = effectiveSpeed;
 
-        const inflationTrigger = score < 0 ? (modifiers.inflationRate * 1.5) : modifiers.inflationRate;
+        const inflationTrigger = (score < 0 ? (modifiers.inflationRate * 1.5) : modifiers.inflationRate) * timeMultiplier;
         if (Math.random() < inflationTrigger && snake.length > 3) snake.pop();
     }
 
@@ -670,14 +687,21 @@
         if (now - lastTimerUpdate >= 1000) {
             marketTimer--; lastTimerUpdate = now;
             if (marketTimer <= 0) { 
-                marketTimer = 30; monthsPassed++; if (monthsPassed >= 12) { monthsPassed = 0; yearsPassed++; checkSalaryHike(); }
-                score += modifiers.monthlySalary;
-                if (dividendAssets > 0) score += Math.floor(dividendAssets * 0.05);
+                marketTimer = 30; 
+                const timeStep = (yearsPassed >= 1) ? 3 : 1;
+                monthsPassed += timeStep;
+                if (monthsPassed >= 12) { monthsPassed = 0; yearsPassed++; checkSalaryHike(); }
+                const payday = modifiers.monthlySalary * timeStep;
+                score += payday;
+                let divPay = 0;
+                if (dividendAssets > 0) { divPay = Math.floor(dividendAssets * 0.05 * timeStep); score += divPay; }
+                const label = (timeStep === 3) ? "Quarterly Payday" : "Monthly Payday";
+                addNotification(label, (payday + divPay), "positive");
                 spawnMarket(); generateMarketNews(); 
                 updateChart(); 
             }
             const timerText = document.getElementById('timer-text');
-            if (timerText) timerText.innerText = "Cycle: " + marketTimer + "s";
+            if (timerText) timerText.innerText = (yearsPassed >= 1 ? "Quarter: " : "Month: ") + marketTimer + "s";
             const tenureText = document.getElementById('tenureText');
             if (tenureText) tenureText.innerText = "Tenure: " + yearsPassed + "y " + monthsPassed + "m";
             const timerBar = document.getElementById('timer-bar');
