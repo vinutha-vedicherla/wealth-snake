@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    min-height: 100%;
+  }
+
+  body {
+    @apply bg-neutral-950 text-white antialiased;
+    font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-2xl border border-neutral-800 bg-neutral-900/60 p-4;
+  }
+
+  .btn {
+    @apply flex w-full items-center justify-center gap-2 rounded-xl border px-4 py-3 text-sm font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-30;
+  }
+
+  .btn-primary {
+    @apply btn border-emerald-500 bg-emerald-500 text-black hover:bg-emerald-400;
+  }
+
+  .btn-ghost {
+    @apply btn border-neutral-700 bg-neutral-800/60 text-neutral-200 hover:border-emerald-500 hover:text-emerald-400;
+  }
+
+  .field {
+    @apply w-full rounded-xl border border-neutral-700 bg-neutral-800 px-4 py-3 text-center font-bold text-white outline-none transition-colors placeholder:font-normal placeholder:text-neutral-500 focus:border-emerald-500;
+  }
+
+  .label {
+    @apply text-[10px] font-black uppercase tracking-[0.18em] text-neutral-500;
+  }
+}
+
+@keyframes notif-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.notif {
+  animation: notif-in 0.25s ease-out both;
+}
